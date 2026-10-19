@@ -8,6 +8,7 @@ android {
         targetSdk = 35
         versionCode = 2
         versionName = "1.1.0"
+        ndk { abiFilters += "arm64-v8a" }
     }
     buildTypes { release { isMinifyEnabled = false } }
 }
