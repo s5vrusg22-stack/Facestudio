@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#151318" />
+    <meta name="description" content="사진을 기기 안에서 합성하는 한국어 Face Studio 앱" />
+    <meta name="application-name" content="Face Studio" />
+    
+    
+    
+    <title>Face Studio · 사진 합성 스튜디오</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #151318;
+        --panel: #211e25;
+        --panel-soft: #29252e;
+        --line: #3a3540;
+        --ink: #f5f1f7;
+        --muted: #b8afbd;
+        --subtle: #827a87;
+        --accent: #d6a7ff;
+        --accent-strong: #bd7fff;
+        --mint: #bcebd9;
+        --danger: #f6b6bb;
+        font-family: Pretendard, "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-width: 320px; background: var(--bg); color: var(--ink); }
+      button, input { font: inherit; }
+      button { color: inherit; }
+      .app-shell { min-height: 100svh; padding: max(14px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); }
+      .topbar { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 52px; }
+      .brand { display: inline-flex; align-items: center; gap: 11px; font-weight: 760; letter-spacing: -.035em; }
+      .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 13px; background: linear-gradient(145deg,#d8b4ff,#a681d5); color: #21182a; box-shadow: 0 5px 20px #bd7fff27; }
+      .brand-mark svg { width: 21px; height: 21px; }
+      .brand-name { font-size: 16px; }
+      .brand-sub { display: block; margin-top: 2px; color: var(--subtle); font-size: 10px; font-weight: 650; letter-spacing: .13em; }
+      .install-btn, .quiet-btn { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 10px 15px; font-weight: 700; font-size: 13px; cursor: pointer; transition: .18s ease; }
+      .install-btn { border-color: transparent; background: var(--accent); color: #21172b; }
+      .install-btn:hover { background: #e3c7ff; transform: translateY(-1px); }
+      .quiet-btn:hover { border-color: #807089; background: var(--panel-soft); }
+      .hero { max-width: 1120px; margin: 38px auto 25px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+      .eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--mint); font-size: 11px; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
+      .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 12px #bcebd988; }
+      h1 { margin: 12px 0 8px; font-size: clamp(29px, 5vw, 49px); line-height: 1.08; letter-spacing: -.06em; }
+      .hero p { max-width: 520px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+      .privacy-chip { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 11px 14px; border: 1px solid #40514a; border-radius: 999px; color: var(--mint); background: #bcebd90b; font-size: 12px; font-weight: 700; }
+      .privacy-chip svg { width: 15px; height: 15px; }
+      .workspace { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: minmax(300px, 370px) minmax(0, 1fr); gap: 18px; align-items: start; }
+      .side-card, .preview-card { border: 1px solid var(--line); border-radius: 22px; background: var(--panel); }
+      .side-card { padding: 22px; }
+      .section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 17px; }
+      .section-heading h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
+      .step-count { color: var(--subtle); font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+      .upload-list { display: grid; gap: 11px; }
+      .upload-box { display: flex; align-items: center; gap: 13px; min-height: 82px; padding: 14px; border: 1px dashed #5b5361; border-radius: 16px; background: #ffffff04; cursor: pointer; transition: .18s ease; }
+      .upload-box:hover, .upload-box:focus-within { border-color: var(--accent); background: #d6a7ff0d; }
+      .upload-icon { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; color: var(--accent); background: #d6a7ff16; }
+      .upload-icon svg { width: 20px; height: 20px; }
+      .upload-copy { min-width: 0; flex: 1; }
+      .upload-copy strong { display: block; font-size: 13px; }
+      .upload-copy small { display: block; overflow: hidden; margin-top: 5px; color: var(--subtle); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+      .upload-arrow { width: 17px; height: 17px; color: var(--subtle); }
+      .upload-box input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+      .adjustments { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+      .adjust-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+      .adjust-row output { min-width: 34px; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+      input[type="range"] { width: 100%; height: 24px; margin: 0 0 16px; accent-color: var(--accent-strong); cursor: pointer; }
+      .helper-text { margin: 0 0 18px; color: var(--subtle); font-size: 11px; line-height: 1.65; }
+      .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+      .primary-btn, .secondary-btn { min-height: 48px; border: 0; border-radius: 14px; font-weight: 760; cursor: pointer; transition: .18s ease; }
+      .primary-btn { background: var(--accent); color: #21172b; }
+      .primary-btn:hover:not(:disabled) { background: #e4caff; transform: translateY(-1px); }
+      .secondary-btn { border: 1px solid var(--line); background: transparent; color: var(--ink); }
+      .secondary-btn:hover:not(:disabled) { background: var(--panel-soft); }
+      button:disabled { opacity: .42; cursor: not-allowed; }
+      .preview-card { min-height: 566px; padding: 19px; display: flex; flex-direction: column; }
+      .preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+      .preview-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 720; }
+      .preview-title svg { width: 17px; height: 17px; color: var(--accent); }
+      .preview-hint { color: var(--subtle); font-size: 11px; }
+      .canvas-wrap { flex: 1; min-height: 400px; display: grid; place-items: center; overflow: hidden; border: 1px solid #3a3540; border-radius: 16px; background: radial-gradient(ellipse at 50% 40%,#29242f 0%,#1c1920 63%,#18161b 100%); }
+      .canvas-wrap canvas { display: none; width: auto; height: auto; max-width: 100%; max-height: 60vh; object-fit: contain; touch-action: none; cursor: grab; }
+      .canvas-wrap canvas:active { cursor: grabbing; }
+      .empty-state { max-width: 300px; padding: 26px; text-align: center; }
+      .empty-art { position: relative; width: 100px; height: 100px; margin: 0 auto 20px; border: 1px solid #685970; border-radius: 28px; background: linear-gradient(145deg,#2c2532,#211e25); transform: rotate(-7deg); }
+      .empty-art::before { content: ""; position: absolute; width: 44px; height: 58px; left: 16px; top: 18px; border: 1px solid #d6a7ff; border-radius: 50% 50% 44% 44%; opacity: .8; }
+      .empty-art::after { content: ""; position: absolute; width: 40px; height: 52px; right: 12px; bottom: 11px; border: 1px solid #bcebd9; border-radius: 50% 50% 44% 44%; opacity: .7; }
+      .empty-state strong { display: block; font-size: 14px; }
+      .empty-state p { margin: 8px 0 0; color: var(--subtle); font-size: 12px; line-height: 1.65; }
+      .canvas-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; color: var(--subtle); font-size: 11px; }
+      .canvas-meta strong { color: var(--muted); font-weight: 650; }
+      .privacy-note { max-width: 1120px; margin: 16px auto 0; display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border: 1px solid #40514a; border-radius: 16px; background: #bcebd907; color: var(--muted); font-size: 11px; line-height: 1.65; }
+      .privacy-note svg { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; color: var(--mint); }
+      .privacy-note strong { color: var(--mint); }
+      .install-tip { max-width: 1120px; margin: 16px auto 0; display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; color: var(--muted); background: #ffffff03; font-size: 11px; line-height: 1.6; }
+      .install-tip strong { color: var(--ink); }
+      .install-tip[hidden] { display: none; }
+      .toast { position: fixed; z-index: 10; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); max-width: calc(100vw - 30px); padding: 12px 17px; border: 1px solid #5a4d62; border-radius: 14px; background: #27222b; color: var(--ink); box-shadow: 0 14px 45px #0008; font-size: 12px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; transition: .25s ease; }
+      .toast.show { opacity: 1; transform: translate(-50%, 0); }
+      dialog { width: min(420px, calc(100vw - 34px)); border: 1px solid #554b5d; border-radius: 21px; padding: 23px; background: #211e25; color: var(--ink); box-shadow: 0 25px 90px #0009; }
+      dialog::backdrop { background: #0a090dc9; backdrop-filter: blur(5px); }
+      dialog h2 { margin: 0 0 12px; font-size: 18px; }
+      dialog p, dialog li { color: var(--muted); font-size: 13px; line-height: 1.7; }
+      dialog ol { padding-left: 20px; }
+      dialog .primary-btn { width: 100%; margin-top: 8px; }
+      @media (max-width: 780px) {
+        .app-shell { padding-inline: 13px; }
+        .hero { margin-top: 26px; align-items: flex-start; flex-direction: column; gap: 14px; }
+        .hero p { font-size: 13px; }
+        .workspace { grid-template-columns: 1fr; gap: 12px; }
+        .side-card { order: 2; padding: 18px; }
+        .preview-card { order: 1; min-height: 0; padding: 13px; }
+        .canvas-wrap { min-height: 300px; max-height: 56vh; }
+        .canvas-wrap canvas { max-height: 53vh; }
+        .privacy-chip { font-size: 11px; }
+        .install-tip { align-items: flex-start; }
+      }
+      @media (max-width: 390px) {
+        .brand-name { font-size: 14px; }
+        .install-btn { padding: 9px 12px; font-size: 12px; }
+        .side-card { padding: 15px; }
+        .canvas-wrap { min-height: 250px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand" aria-label="Face Studio 홈">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5c-3.7 0-6 2.6-6 6.5v2.1c0 4.4 2.5 8.4 6 8.4s6-4 6-8.4V10c0-3.9-2.3-6.5-6-6.5Z" stroke="currentColor" stroke-width="1.6"/><path d="M9.4 11.1h.1m5 0h.1M9.7 15c1.4 1 3.2 1 4.6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m4.1 8.6 1.7.7M19.9 8.6l-1.7.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </span>
+          <span><span class="brand-name">Face Studio</span><span class="brand-sub">사진 합성 스튜디오</span></span>
+        </div>
+        <button class="install-btn" id="installButton" type="button" hidden>앱 설치</button>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="mainTitle">
+          <div>
+            <div class="eyebrow"><span class="status-dot"></span> LOCAL PHOTO STUDIO</div>
+            <h1 id="mainTitle">얼굴을 골라,<br />장면에 담아봐요.</h1>
+            <p>얼굴 사진과 배경 사진을 고른 뒤 위치와 크기를 맞춰 보세요. 완성한 이미지는 바로 기기에 저장할 수 있어요.</p>
+          </div>
+          <div class="privacy-chip">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 5 6v5.1c0 4.6 2.8 8.1 7 9.9 4.2-1.8 7-5.3 7-9.9V6l-7-3Z" stroke="currentColor" stroke-width="1.6"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            사진은 기기에서 처리
+          </div>
+        </section>
+
+        <section class="workspace" aria-label="사진 합성 작업 공간">
+          <div class="side-card">
+            <div class="section-heading"><h2>사진 준비</h2><span class="step-count" id="stepCount">STEP 01 / 02</span></div>
+            <div class="upload-list">
+              <label class="upload-box" for="faceInput">
+                <span class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 20c.5-4 2.6-6 6.5-6s6 2 6.5 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M19 4v4m-2-2h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+                <span class="upload-copy"><strong>얼굴 사진 선택</strong><small id="faceFileName">정면이 잘 보이는 사진을 골라주세요</small></span>
+                <svg class="upload-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <input id="faceInput" type="file" accept="image/*" aria-label="합성할 얼굴 사진 선택" />
+              </label>
+              <label class="upload-box" for="backgroundInput">
+                <span class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="15" rx="3" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="9.5" r="1.5" stroke="currentColor" stroke-width="1.4"/><path d="m5 17 4.5-4.5 3 3 2.5-2.5 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span class="upload-copy"><strong>배경 사진 선택</strong><small id="backgroundFileName">얼굴을 올릴 장면을 골라주세요</small></span>
+                <svg class="upload-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <input id="backgroundInput" type="file" accept="image/*" aria-label="배경 사진 선택" />
+              </label>
+            </div>
+
+            <div class="adjustments" aria-label="얼굴 사진 조절">
+              <div class="adjust-row"><label for="scaleRange">얼굴 크기</label><output id="scaleOutput" for="scaleRange">30%</output></div>
+              <input id="scaleRange" type="range" min="14" max="72" value="30" disabled />
+              <div class="adjust-row"><label for="edgeRange">가장자리 부드럽게</label><output id="edgeOutput" for="edgeRange">18</output></div>
+              <input id="edgeRange" type="range" min="0" max="30" value="18" disabled />
+              <p class="helper-text">미리보기에서 얼굴을 손가락이나 마우스로 끌어 위치를 맞출 수 있어요.</p>
+            </div>
+
+            <div class="action-row">
+              <button class="primary-btn" id="saveButton" type="button" disabled>이미지 저장</button>
+              <button class="secondary-btn" id="shareButton" type="button" disabled>공유</button>
+            </div>
+          </div>
+
+          <div class="preview-card">
+            <div class="preview-head">
+              <div class="preview-title"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="m7 16 3.6-3.6 2.5 2.5 2-2L19 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 합성 미리보기</div>
+              <span class="preview-hint">사진 2장을 선택해 시작</span>
+            </div>
+            <div class="canvas-wrap" id="canvasWrap">
+              <div class="empty-state" id="emptyState"><div class="empty-art" aria-hidden="true"></div><strong>여기에 결과가 보여요</strong><p>먼저 얼굴 사진과 배경 사진을 선택해 주세요.</p></div>
+              <canvas id="resultCanvas" aria-label="합성된 사진 미리보기"></canvas>
+            </div>
+            <div class="canvas-meta"><span id="canvasStatus">아직 선택한 사진이 없어요</span><strong>드래그해 위치 조절</strong></div>
+          </div>
+        </section>
+
+        <aside class="privacy-note" aria-label="사진 처리 안내">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 5 6v5.1c0 4.6 2.8 8.1 7 9.9 4.2-1.8 7-5.3 7-9.9V6l-7-3Z" stroke="currentColor" stroke-width="1.6"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><strong>사진은 서버로 전송되지 않아요.</strong> 고른 사진은 이 기기의 브라우저 메모리에서만 합성하고, 앱을 닫으면 작업 내용이 사라집니다.</span>
+        </aside>
+
+        <aside class="install-tip" id="installTip" hidden>
+          <span><strong>홈 화면에 설치하기</strong><br />브라우저 메뉴에서 “앱 설치” 또는 “홈 화면에 추가”를 선택하면 전체 화면 앱처럼 열 수 있어요.</span>
+          <button class="quiet-btn" id="installHelpButton" type="button">설치 방법</button>
+        </aside>
+      </main>
+    </div>
+
+    <dialog id="installDialog" aria-labelledby="installTitle">
+      <h2 id="installTitle">Face Studio 설치</h2>
+      <p>Android에서는 Chrome 메뉴에서 설치할 수 있어요.</p>
+      <ol><li>이 페이지를 Chrome으로 열어요.</li><li>오른쪽 위 메뉴 <strong>⋮</strong>를 눌러요.</li><li><strong>앱 설치</strong> 또는 <strong>홈 화면에 추가</strong>를 선택해요.</li></ol>
+      <p>설치 후에는 아이콘을 눌러 전체 화면으로 실행할 수 있어요.</p>
+      <button class="primary-btn" id="closeDialogButton" type="button">확인</button>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      (() => {
+        const faceInput = document.getElementById('faceInput');
+        const backgroundInput = document.getElementById('backgroundInput');
+        const canvas = document.getElementById('resultCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const emptyState = document.getElementById('emptyState');
+        const faceName = document.getElementById('faceFileName');
+        const backgroundName = document.getElementById('backgroundFileName');
+        const scaleRange = document.getElementById('scaleRange');
+        const edgeRange = document.getElementById('edgeRange');
+        const scaleOutput = document.getElementById('scaleOutput');
+        const edgeOutput = document.getElementById('edgeOutput');
+        const saveButton = document.getElementById('saveButton');
+        const shareButton = document.getElementById('shareButton');
+        const canvasStatus = document.getElementById('canvasStatus');
+        const stepCount = document.getElementById('stepCount');
+        const installButton = document.getElementById('installButton');
+        const installTip = document.getElementById('installTip');
+        const installDialog = document.getElementById('installDialog');
+        const toast = document.getElementById('toast');
+        let faceImage = null;
+        let backgroundImage = null;
+        let faceLayer = null;
+        let point = { x: 0.5, y: 0.5 };
+        let drag = null;
+        let installPrompt = null;
+        let toastTimer = 0;
+
+        function say(message) {
+          toast.textContent = message;
+          toast.classList.add('show');
+          window.clearTimeout(toastTimer);
+          toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2600);
+        }
+
+        function makeCanvasFromBitmap(bitmap) {
+          const maxSide = 1800;
+          const factor = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+          const result = document.createElement('canvas');
+          result.width = Math.max(1, Math.round(bitmap.width * factor));
+          result.height = Math.max(1, Math.round(bitmap.height * factor));
+          const g = result.getContext('2d', { alpha: false });
+          g.imageSmoothingEnabled = true;
+          g.imageSmoothingQuality = 'high';
+          g.drawImage(bitmap, 0, 0, result.width, result.height);
+          return result;
+        }
+
+        async function loadImageFile(file) {
+          if (!file || !file.type.startsWith('image/')) throw new Error('이미지 파일을 선택해 주세요.');
+          if (file.size > 25 * 1024 * 1024) throw new Error('25MB 이하의 사진을 선택해 주세요.');
+          if ('createImageBitmap' in window) {
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            const result = makeCanvasFromBitmap(bitmap);
+            bitmap.close?.();
+            return result;
+          }
+          const url = URL.createObjectURL(file);
+          try {
+            const image = await new Promise((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.onerror = () => reject(new Error('사진을 열 수 없어요. 다른 이미지를 선택해 주세요.'));
+              img.src = url;
+            });
+            return makeCanvasFromBitmap(image);
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        }
+
+        function prepareFaceLayer() {
+          if (!faceImage) { faceLayer = null; return; }
+          const side = 640;
+          const layer = document.createElement('canvas');
+          layer.width = side;
+          layer.height = side;
+          const g = layer.getContext('2d');
+          const cropSide = Math.min(faceImage.width, faceImage.height);
+          const sx = (faceImage.width - cropSide) / 2;
+          const sy = (faceImage.height - cropSide) / 2;
+          g.imageSmoothingEnabled = true;
+          g.imageSmoothingQuality = 'high';
+          g.drawImage(faceImage, sx, sy, cropSide, cropSide, 0, 0, side, side);
+          const softness = Number(edgeRange.value) / 30;
+          const innerStop = Math.max(0.42, 0.96 - softness * 0.54);
+          g.globalCompositeOperation = 'destination-in';
+          const gradient = g.createRadialGradient(side / 2, side / 2, side * innerStop * 0.5, side / 2, side / 2, side * 0.5);
+          gradient.addColorStop(0, 'rgba(255,255,255,1)');
+          gradient.addColorStop(0.82, 'rgba(255,255,255,0.96)');
+          gradient.addColorStop(1, 'rgba(255,255,255,0)');
+          g.fillStyle = gradient;
+          g.fillRect(0, 0, side, side);
+          g.globalCompositeOperation = 'source-over';
+          faceLayer = layer;
+        }
+
+        function updateUi() {
+          const ready = Boolean(faceImage && backgroundImage);
+          emptyState.hidden = Boolean(backgroundImage);
+          canvas.style.display = backgroundImage ? 'block' : 'none';
+          scaleRange.disabled = !ready;
+          edgeRange.disabled = !ready;
+          saveButton.disabled = !ready;
+          shareButton.disabled = !ready || (!navigator.share && !window.FaceStudioNative);
+          stepCount.textContent = ready ? 'STEP 02 / 02' : faceImage || backgroundImage ? 'STEP 02 / 02' : 'STEP 01 / 02';
+          canvasStatus.textContent = ready ? '두 사진을 기기에서 합성 중' : faceImage ? '이제 배경 사진을 선택해 주세요' : backgroundImage ? '이제 얼굴 사진을 선택해 주세요' : '아직 선택한 사진이 없어요';
+          if (ready) draw();
+        }
+
+        function draw() {
+          if (!backgroundImage) return;
+          if (canvas.width !== backgroundImage.width || canvas.height !== backgroundImage.height) {
+            canvas.width = backgroundImage.width;
+            canvas.height = backgroundImage.height;
+          }
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+          if (!faceLayer) return;
+          const size = Math.min(canvas.width, canvas.height) * Number(scaleRange.value) / 100;
+          const x = point.x * canvas.width;
+          const y = point.y * canvas.height;
+          ctx.drawImage(faceLayer, x - size / 2, y - size / 2, size, size);
+        }
+
+        async function handleFile(input, type) {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          try {
+            const image = await loadImageFile(file);
+            if (type === 'face') {
+              faceImage = image;
+              faceName.textContent = file.name;
+              prepareFaceLayer();
+            } else {
+              backgroundImage = image;
+              backgroundName.textContent = file.name;
+              point = { x: 0.5, y: 0.5 };
+            }
+            updateUi();
+          } catch (error) {
+            say(error.message || '사진을 불러오지 못했어요.');
+          } finally {
+            input.value = '';
+          }
+        }
+
+        faceInput.addEventListener('change', () => handleFile(faceInput, 'face'));
+        backgroundInput.addEventListener('change', () => handleFile(backgroundInput, 'background'));
+        scaleRange.addEventListener('input', () => {
+          scaleOutput.value = `${scaleRange.value}%`;
+          scaleOutput.textContent = `${scaleRange.value}%`;
+          draw();
+        });
+        edgeRange.addEventListener('input', () => {
+          edgeOutput.value = edgeRange.value;
+          edgeOutput.textContent = edgeRange.value;
+          prepareFaceLayer();
+          draw();
+        });
+
+        canvas.addEventListener('pointerdown', (event) => {
+          if (!faceLayer || !backgroundImage) return;
+          canvas.setPointerCapture(event.pointerId);
+          const rect = canvas.getBoundingClientRect();
+          drag = { x: event.clientX, y: event.clientY, pointX: point.x, pointY: point.y, width: rect.width, height: rect.height };
+        });
+        canvas.addEventListener('pointermove', (event) => {
+          if (!drag) return;
+          const rect = canvas.getBoundingClientRect();
+          point.x = Math.min(1, Math.max(0, drag.pointX + (event.clientX - drag.x) / rect.width));
+          point.y = Math.min(1, Math.max(0, drag.pointY + (event.clientY - drag.y) / rect.height));
+          draw();
+        });
+        const endDrag = () => { drag = null; };
+        canvas.addEventListener('pointerup', endDrag);
+        canvas.addEventListener('pointercancel', endDrag);
+
+        async function outputBlob() {
+          return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('이미지를 만들지 못했어요.')), 'image/png'));
+        }
+        async function sendBlobToNative(blob, filename, share) {
+          const bridge = window.FaceStudioNative;
+          if (!bridge || !bridge.beginPngExport(filename, share)) throw new Error('이미지 내보내기를 시작하지 못했어요.');
+          const reader = blob.stream().getReader();
+          try {
+            while (true) {
+              const part = await reader.read();
+              if (part.done) break;
+              const bytes = part.value;
+              for (let start = 0; start < bytes.length; start += 24576) {
+                const slice = bytes.subarray(start, Math.min(start + 24576, bytes.length));
+                let binary = '';
+                for (let i = 0; i < slice.length; i++) binary += String.fromCharCode(slice[i]);
+                if (!bridge.appendPngExport(btoa(binary))) throw new Error('이미지 데이터를 기록하지 못했어요.');
+              }
+            }
+            if (!bridge.finishPngExport()) throw new Error('이미지를 저장하지 못했어요.');
+          } catch (error) {
+            bridge.cancelPngExport();
+            throw error;
+          }
+        }
+        saveButton.addEventListener('click', async () => {
+          try {
+            const blob = await outputBlob();
+            const filename = 'face-studio-' + new Date().toISOString().slice(0, 10) + '.png';
+            if (window.FaceStudioNative) await sendBlobToNative(blob, filename, false);
+            else {
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(blob);
+              link.download = filename;
+              link.click();
+              window.setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+            }
+            say('합성 이미지를 기기에 저장했어요.');
+          } catch (error) { say(error.message || '저장하지 못했어요.'); }
+        });
+        shareButton.addEventListener('click', async () => {
+          try {
+            const blob = await outputBlob();
+            if (window.FaceStudioNative) await sendBlobToNative(blob, 'face-studio.png', true);
+            else {
+              const file = new File([blob], 'face-studio.png', { type: 'image/png' });
+              if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Face Studio 합성 이미지' });
+              else say('이 기기에서는 파일 공유를 지원하지 않아요. 이미지 저장을 이용해 주세요.');
+            }
+          } catch (error) { if (error.name !== 'AbortError') say('공유를 완료하지 못했어요.'); }
+        });
+
+        function showInstallHelp() { installDialog.showModal(); }
+        document.getElementById('installHelpButton').addEventListener('click', showInstallHelp);
+        document.getElementById('closeDialogButton').addEventListener('click', () => installDialog.close());
+        installButton.addEventListener('click', async () => {
+          if (!installPrompt) { showInstallHelp(); return; }
+          installPrompt.prompt();
+          await installPrompt.userChoice;
+          installPrompt = null;
+          installButton.hidden = true;
+        });
+        window.addEventListener('beforeinstallprompt', (event) => {
+          event.preventDefault();
+          installPrompt = event;
+          installButton.hidden = false;
+          installTip.hidden = true;
+        });
+        window.addEventListener('appinstalled', () => {
+          installButton.hidden = true;
+          installTip.hidden = true;
+          say('Face Studio를 설치했어요.');
+        });
+        if (window.FaceStudioNative) {
+          installButton.hidden = true;
+          installTip.hidden = true;
+        } else if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+          installButton.hidden = true;
+          installTip.hidden = true;
+        } else {
+          installTip.hidden = false;
+        }
+        if (!window.FaceStudioNative && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+        updateUi();
+      })();
+    </script>
+  </body>
+</html>
