@@ -71,6 +71,9 @@
       .helper-text { margin: 0 0 18px; color: var(--subtle); font-size: 11px; line-height: 1.65; }
       .select-control { max-width: 150px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-soft); color: var(--ink); font-size: 12px; }
       .color-control { width: 43px; height: 32px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-soft); }
+      .background-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+      .background-tools button { min-height: 42px; font-size: 12px; }
+      .background-status { min-height: 18px; margin: 7px 0 0; }
       .prop-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 12px; }
       .prop-button { min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-soft); font-size: 23px; cursor: pointer; }
       .prop-button:hover:not(:disabled), .prop-button:focus-visible { border-color: var(--accent); background: #d6a7ff12; }
@@ -151,7 +154,7 @@
           <div>
             <div class="eyebrow"><span class="status-dot"></span> LOCAL PHOTO STUDIO</div>
             <h1 id="mainTitle">얼굴을 골라,<br />장면에 담아봐요.</h1>
-            <p>얼굴 사진과 배경 사진을 고른 뒤 위치와 크기를 맞춰 보세요. 완성한 이미지는 바로 기기에 저장할 수 있어요.</p>
+            <p>얼굴 사진에서 인물만 자동으로 분리해 배경 사진에 합성해 보세요. 테두리와 소품도 조절할 수 있어요.</p>
           </div>
           <div class="privacy-chip">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 5 6v5.1c0 4.6 2.8 8.1 7 9.9 4.2-1.8 7-5.3 7-9.9V6l-7-3Z" stroke="currentColor" stroke-width="1.6"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -177,6 +180,12 @@
               </label>
             </div>
 
+            <div class="background-tools" aria-label="원본 사진 배경 분리">
+              <button id="removeBackgroundButton" class="secondary-btn" type="button" disabled>인물 배경 자동 제거</button>
+              <button id="restoreFaceButton" class="secondary-btn" type="button" disabled>원본 사진 복원</button>
+            </div>
+            <p class="helper-text background-status" id="backgroundRemovalStatus" role="status" aria-live="polite">얼굴 사진을 선택하면 원래 배경을 기기 안에서 자동으로 분리할 수 있어요.</p>
+
             <div class="adjustments" aria-label="얼굴 사진 조절">
               <div class="adjust-row"><label for="scaleRange">얼굴 크기</label><output id="scaleOutput" for="scaleRange">30%</output></div>
               <input id="scaleRange" type="range" min="14" max="72" value="30" disabled />
@@ -185,6 +194,7 @@
               <div class="adjust-row"><label for="maskShape">테두리 모양</label>
                 <select id="maskShape" class="select-control" disabled>
                   <option value="circle">원형</option><option value="rounded">둥근 사각형</option><option value="square">사각형</option>
+                  <option value="person" disabled>인물 윤곽 (자동 제거)</option>
                 </select>
               </div>
               <div class="adjust-row"><label for="borderColor">테두리 색</label><input id="borderColor" class="color-control" type="color" value="#d6a7ff" disabled /></div>
@@ -268,6 +278,9 @@
         const edgeRange = document.getElementById('edgeRange');
         const scaleOutput = document.getElementById('scaleOutput');
         const edgeOutput = document.getElementById('edgeOutput');
+        const removeBackgroundButton = document.getElementById('removeBackgroundButton');
+        const restoreFaceButton = document.getElementById('restoreFaceButton');
+        const backgroundRemovalStatus = document.getElementById('backgroundRemovalStatus');
         const maskShapeSelect = document.getElementById('maskShape');
         const borderColorInput = document.getElementById('borderColor');
         const borderWidthRange = document.getElementById('borderWidthRange');
@@ -290,6 +303,10 @@
         const installDialog = document.getElementById('installDialog');
         const toast = document.getElementById('toast');
         let faceImage = null;
+        let originalFaceImage = null;
+        let backgroundRemoved = false;
+        let currentRemovalId = null;
+        let maskShapeBeforeRemoval = 'circle';
         let backgroundImage = null;
         let faceLayer = null;
         let stickers = [];
@@ -306,25 +323,63 @@
           toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2600);
         }
 
-        function makeCanvasFromBitmap(bitmap) {
+        window.receiveNativeCutout = (requestId, base64, error) => {
+          if (requestId !== currentRemovalId) return;
+          currentRemovalId = null;
+          removeBackgroundButton.disabled = !faceImage;
+          if (error || !base64) {
+            backgroundRemovalStatus.textContent = error || '인물 배경을 분리하지 못했어요. 다른 사진으로 다시 시도해 주세요.';
+            say(backgroundRemovalStatus.textContent);
+            updateUi();
+            return;
+          }
+          const image = new Image();
+          image.onload = () => {
+            const cutout = document.createElement('canvas');
+            cutout.width = originalFaceImage.width;
+            cutout.height = originalFaceImage.height;
+            const g = cutout.getContext('2d', { alpha: true });
+            g.imageSmoothingEnabled = true;
+            g.imageSmoothingQuality = 'high';
+            g.drawImage(originalFaceImage, 0, 0, cutout.width, cutout.height);
+            g.globalCompositeOperation = 'destination-in';
+            g.drawImage(image, 0, 0, cutout.width, cutout.height);
+            g.globalCompositeOperation = 'source-over';
+            faceImage = cutout;
+            backgroundRemoved = true;
+            maskShapeSelect.querySelector('option[value="person"]').disabled = false;
+            maskShapeSelect.value = 'person';
+            backgroundRemovalStatus.textContent = '원래 배경을 분리했어요. 가장자리는 사진에 따라 조금 다를 수 있어요.';
+            prepareFaceLayer();
+            updateUi();
+            say('인물만 분리했어요. 이제 배경 사진에 자연스럽게 배치해 보세요.');
+          };
+          image.onerror = () => {
+            backgroundRemovalStatus.textContent = '분리한 사진을 불러오지 못했어요. 다시 시도해 주세요.';
+            updateUi();
+          };
+          image.src = `data:image/png;base64,${base64}`;
+        };
+
+        function makeCanvasFromBitmap(bitmap, preserveAlpha = false) {
           const maxSide = 1800;
           const factor = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
           const result = document.createElement('canvas');
           result.width = Math.max(1, Math.round(bitmap.width * factor));
           result.height = Math.max(1, Math.round(bitmap.height * factor));
-          const g = result.getContext('2d', { alpha: false });
+          const g = result.getContext('2d', { alpha: preserveAlpha });
           g.imageSmoothingEnabled = true;
           g.imageSmoothingQuality = 'high';
           g.drawImage(bitmap, 0, 0, result.width, result.height);
           return result;
         }
 
-        async function loadImageFile(file) {
+        async function loadImageFile(file, preserveAlpha = false) {
           if (!file || !file.type.startsWith('image/')) throw new Error('이미지 파일을 선택해 주세요.');
           if (file.size > 25 * 1024 * 1024) throw new Error('25MB 이하의 사진을 선택해 주세요.');
           if ('createImageBitmap' in window) {
             const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-            const result = makeCanvasFromBitmap(bitmap);
+            const result = makeCanvasFromBitmap(bitmap, preserveAlpha);
             bitmap.close?.();
             return result;
           }
@@ -336,7 +391,7 @@
               img.onerror = () => reject(new Error('사진을 열 수 없어요. 다른 이미지를 선택해 주세요.'));
               img.src = url;
             });
-            return makeCanvasFromBitmap(image);
+            return makeCanvasFromBitmap(image, preserveAlpha);
           } finally {
             URL.revokeObjectURL(url);
           }
@@ -400,16 +455,25 @@
           layer.width = side;
           layer.height = side;
           const g = layer.getContext('2d');
-          const cropSide = Math.min(faceImage.width, faceImage.height);
-          const sx = (faceImage.width - cropSide) / 2;
-          const sy = (faceImage.height - cropSide) / 2;
           g.imageSmoothingEnabled = true;
           g.imageSmoothingQuality = 'high';
-          g.drawImage(faceImage, sx, sy, cropSide, cropSide, 0, 0, side, side);
+          if (maskShapeSelect.value === 'person' && backgroundRemoved) {
+            const fit = Math.min(side / faceImage.width, side / faceImage.height);
+            const width = faceImage.width * fit;
+            const height = faceImage.height * fit;
+            g.drawImage(faceImage, (side - width) / 2, (side - height) / 2, width, height);
+          } else {
+            const cropSide = Math.min(faceImage.width, faceImage.height);
+            const sx = (faceImage.width - cropSide) / 2;
+            const sy = (faceImage.height - cropSide) / 2;
+            g.drawImage(faceImage, sx, sy, cropSide, cropSide, 0, 0, side, side);
+          }
           const softness = Number(edgeRange.value);
           const shape = maskShapeSelect.value;
-          g.globalCompositeOperation = 'destination-in';
-          if (shape === 'circle' && softness > 0) {
+          if (shape !== 'person') g.globalCompositeOperation = 'destination-in';
+          if (shape === 'person' && backgroundRemoved) {
+            // The source image already carries the on-device person mask.
+          } else if (shape === 'circle' && softness > 0) {
             const amount = softness / 30;
             const innerStop = Math.max(0.42, 0.96 - amount * 0.54);
             const gradient = g.createRadialGradient(side / 2, side / 2, side * innerStop * 0.5, side / 2, side / 2, side * 0.5);
@@ -434,10 +498,29 @@
           const borderPercent = Number(borderWidthRange.value);
           if (borderPercent > 0) {
             const width = side * borderPercent / 100;
-            g.strokeStyle = borderColorInput.value;
-            g.lineWidth = width;
-            traceMaskPath(g, shape, width / 2);
-            g.stroke();
+            if (shape === 'person' && backgroundRemoved) {
+              const tint = document.createElement('canvas');
+              tint.width = side;
+              tint.height = side;
+              const tg = tint.getContext('2d');
+              tg.drawImage(layer, 0, 0);
+              tg.globalCompositeOperation = 'source-in';
+              tg.fillStyle = borderColorInput.value;
+              tg.fillRect(0, 0, side, side);
+              g.save();
+              g.globalCompositeOperation = 'destination-over';
+              const steps = 32;
+              for (let i = 0; i < steps; i++) {
+                const angle = Math.PI * 2 * i / steps;
+                g.drawImage(tint, Math.cos(angle) * width, Math.sin(angle) * width);
+              }
+              g.restore();
+            } else {
+              g.strokeStyle = borderColorInput.value;
+              g.lineWidth = width;
+              traceMaskPath(g, shape, width / 2);
+              g.stroke();
+            }
           }
           g.globalCompositeOperation = 'source-over';
           faceLayer = layer;
@@ -531,10 +614,13 @@
           emptyState.hidden = Boolean(backgroundImage);
           canvas.style.display = backgroundImage ? 'block' : 'none';
           scaleRange.disabled = !ready;
-          edgeRange.disabled = !ready;
+          edgeRange.disabled = !ready || (maskShapeSelect.value === 'person' && backgroundRemoved);
           maskShapeSelect.disabled = !ready;
+          maskShapeSelect.querySelector('option[value="person"]').disabled = !backgroundRemoved;
           borderColorInput.disabled = !ready;
           borderWidthRange.disabled = !ready;
+          removeBackgroundButton.disabled = !faceImage || Boolean(currentRemovalId);
+          restoreFaceButton.disabled = !backgroundRemoved;
           propPalette.querySelectorAll('button').forEach((button) => { button.disabled = !ready; });
           customStickerButton.disabled = !ready;
           saveButton.disabled = !ready;
@@ -567,10 +653,17 @@
           const file = input.files && input.files[0];
           if (!file) return;
           try {
-            const image = await loadImageFile(file);
+            const image = await loadImageFile(file, type === 'face');
             if (type === 'face') {
+              currentRemovalId = null;
               faceImage = image;
+              originalFaceImage = image;
+              backgroundRemoved = false;
+              maskShapeBeforeRemoval = 'circle';
+              maskShapeSelect.value = 'circle';
+              maskShapeSelect.querySelector('option[value="person"]').disabled = true;
               faceName.textContent = file.name;
+              backgroundRemovalStatus.textContent = window.FaceStudioNative ? '원래 배경을 기기 안에서 자동 분리할 수 있어요.' : '인물 자동 분리는 Android 앱에서 사용할 수 있어요.';
               prepareFaceLayer();
             } else {
               backgroundImage = image;
@@ -587,6 +680,49 @@
 
         faceInput.addEventListener('change', () => handleFile(faceInput, 'face'));
         backgroundInput.addEventListener('change', () => handleFile(backgroundInput, 'background'));
+        removeBackgroundButton.addEventListener('click', () => {
+          if (!originalFaceImage) return;
+          if (!window.FaceStudioNative || !window.FaceStudioNative.removeBackground) {
+            backgroundRemovalStatus.textContent = '이 기능은 설치형 Android 앱에서 사용할 수 있어요.';
+            say(backgroundRemovalStatus.textContent);
+            return;
+          }
+          try {
+            const requestId = `cutout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const modelInput = document.createElement('canvas');
+            const maxSide = 1280;
+            const scale = Math.min(1, maxSide / Math.max(originalFaceImage.width, originalFaceImage.height));
+            modelInput.width = Math.max(1, Math.round(originalFaceImage.width * scale));
+            modelInput.height = Math.max(1, Math.round(originalFaceImage.height * scale));
+            modelInput.getContext('2d', { alpha: false }).drawImage(originalFaceImage, 0, 0, modelInput.width, modelInput.height);
+            const base64 = modelInput.toDataURL('image/jpeg', 0.9).split(',')[1];
+            maskShapeBeforeRemoval = maskShapeSelect.value === 'person' ? 'circle' : maskShapeSelect.value;
+            currentRemovalId = requestId;
+            removeBackgroundButton.disabled = true;
+            backgroundRemovalStatus.textContent = '사진에서 인물을 분리하고 있어요…';
+            const started = window.FaceStudioNative.removeBackground(base64, requestId);
+            if (!started) {
+              currentRemovalId = null;
+              removeBackgroundButton.disabled = false;
+              backgroundRemovalStatus.textContent = '분리를 시작하지 못했어요. 사진을 다시 선택해 주세요.';
+            }
+          } catch (error) {
+            currentRemovalId = null;
+            removeBackgroundButton.disabled = false;
+            backgroundRemovalStatus.textContent = '사진을 분리하는 중 오류가 났어요. 다시 시도해 주세요.';
+          }
+        });
+        restoreFaceButton.addEventListener('click', () => {
+          if (!originalFaceImage) return;
+          faceImage = originalFaceImage;
+          backgroundRemoved = false;
+          maskShapeSelect.value = maskShapeBeforeRemoval === 'person' ? 'circle' : maskShapeBeforeRemoval;
+          maskShapeSelect.querySelector('option[value="person"]').disabled = true;
+          backgroundRemovalStatus.textContent = '원본 사진으로 되돌렸어요. 필요하면 배경을 다시 제거할 수 있어요.';
+          prepareFaceLayer();
+          updateUi();
+          say('원본 사진으로 복원했어요.');
+        });
         scaleRange.addEventListener('input', () => {
           scaleOutput.value = `${scaleRange.value}%`;
           scaleOutput.textContent = `${scaleRange.value}%`;
@@ -598,7 +734,7 @@
           prepareFaceLayer();
           draw();
         });
-        maskShapeSelect.addEventListener('change', () => { prepareFaceLayer(); draw(); });
+        maskShapeSelect.addEventListener('change', () => { updateUi(); prepareFaceLayer(); draw(); });
         borderColorInput.addEventListener('input', () => { prepareFaceLayer(); draw(); });
         borderWidthRange.addEventListener('input', () => {
           borderWidthOutput.value = `${borderWidthRange.value}%`;

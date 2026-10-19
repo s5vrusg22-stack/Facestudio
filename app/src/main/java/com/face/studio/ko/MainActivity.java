@@ -3,6 +3,8 @@ package com.face.studio.ko;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -18,12 +20,23 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.segmentation.Segmentation;
+import com.google.mlkit.vision.segmentation.SegmentationMask;
+import com.google.mlkit.vision.segmentation.Segmenter;
+import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.UUID;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private static final int PICK_IMAGE = 4201;
@@ -32,6 +45,7 @@ public class MainActivity extends Activity {
     private File exportFile;
     private String exportName;
     private boolean exportShare;
+    private final ExecutorService backgroundRemovalExecutor = Executors.newSingleThreadExecutor();
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -98,6 +112,7 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        backgroundRemovalExecutor.shutdownNow();
         if (pickerCallback != null) pickerCallback.onReceiveValue(null);
         if (exportFile != null) exportFile.delete();
         if (webView != null) {
@@ -107,7 +122,99 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
+    private void removePersonBackground(String encodedImage, String requestId) {
+        Bitmap decoded = null;
+        Segmenter segmenter = null;
+        try {
+            byte[] bytes = android.util.Base64.decode(encodedImage, android.util.Base64.DEFAULT);
+            decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+            if (decoded == null || decoded.getWidth() < 256 || decoded.getHeight() < 256) {
+                if (decoded != null) decoded.recycle();
+                sendCutoutResult(requestId, null, "해상도가 충분한 사진을 선택해 주세요.");
+                return;
+            }
+            SelfieSegmenterOptions options = new SelfieSegmenterOptions.Builder()
+                    .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
+                    .enableRawSizeMask()
+                    .build();
+            segmenter = Segmentation.getClient(options);
+            final Bitmap source = decoded;
+            final Segmenter processor = segmenter;
+            processor.process(InputImage.fromBitmap(source, 0)).addOnCompleteListener(task -> {
+                if (backgroundRemovalExecutor.isShutdown()) {
+                    processor.close();
+                    if (!source.isRecycled()) source.recycle();
+                    return;
+                }
+                try {
+                    backgroundRemovalExecutor.execute(() -> {
+                        Bitmap maskBitmap = null;
+                        try {
+                            if (!task.isSuccessful() || task.getResult() == null) {
+                                throw new IllegalStateException("Segmentation failed");
+                            }
+                            maskBitmap = createConfidenceMask(task.getResult());
+                            ByteArrayOutputStream output = new ByteArrayOutputStream();
+                            if (!maskBitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                                throw new IllegalStateException("PNG encoding failed");
+                            }
+                            String pngBase64 = android.util.Base64.encodeToString(output.toByteArray(), android.util.Base64.NO_WRAP);
+                            sendCutoutResult(requestId, pngBase64, null);
+                        } catch (Exception e) {
+                            sendCutoutResult(requestId, null, "인물 분리에 실패했어요. 다른 사진으로 다시 시도해 주세요.");
+                        } finally {
+                            if (maskBitmap != null && !maskBitmap.isRecycled()) maskBitmap.recycle();
+                            processor.close();
+                            if (!source.isRecycled()) source.recycle();
+                        }
+                    });
+                } catch (Exception e) {
+                    processor.close();
+                    if (!source.isRecycled()) source.recycle();
+                    sendCutoutResult(requestId, null, "인물 분리를 시작하지 못했어요. 다시 시도해 주세요.");
+                }
+            });
+        } catch (Exception e) {
+            if (segmenter != null) segmenter.close();
+            if (decoded != null && !decoded.isRecycled()) decoded.recycle();
+            sendCutoutResult(requestId, null, "인물 분리를 시작하지 못했어요. 사진을 다시 선택해 주세요.");
+        }
+    }
+
+    private static Bitmap createConfidenceMask(SegmentationMask segmentationMask) {
+        int maskWidth = segmentationMask.getWidth();
+        int maskHeight = segmentationMask.getHeight();
+        ByteBuffer confidence = segmentationMask.getBuffer().duplicate().order(ByteOrder.nativeOrder());
+        int[] pixels = new int[maskWidth * maskHeight];
+        for (int index = 0; index < pixels.length; index++) {
+            float probability = confidence.getFloat(index * 4);
+            float opacity = Math.max(0f, Math.min(1f, (probability - 0.18f) / 0.62f));
+            opacity = opacity * opacity * (3f - 2f * opacity);
+            int alpha = Math.round(255f * opacity);
+            pixels[index] = (alpha << 24) | 0x00ffffff;
+        }
+        return Bitmap.createBitmap(pixels, maskWidth, maskHeight, Bitmap.Config.ARGB_8888);
+    }
+
+    private void sendCutoutResult(String requestId, String imageBase64, String error) {
+        String script = "window.receiveNativeCutout && window.receiveNativeCutout("
+                + JSONObject.quote(requestId) + ","
+                + (imageBase64 == null ? "null" : JSONObject.quote(imageBase64)) + ","
+                + (error == null ? "null" : JSONObject.quote(error)) + ");";
+        runOnUiThread(() -> {
+            if (webView != null) webView.evaluateJavascript(script, null);
+        });
+    }
+
     private final class NativeBridge {
+        @JavascriptInterface public boolean removeBackground(String imageBase64, String requestId) {
+            if (imageBase64 == null || requestId == null || imageBase64.length() > 18000000) return false;
+            try {
+                backgroundRemovalExecutor.execute(() -> removePersonBackground(imageBase64, requestId));
+                return true;
+            } catch (Exception e) { return false; }
+        }
+
         @JavascriptInterface public synchronized boolean beginPngExport(String name, boolean share) {
             try {
                 if (exportFile != null) exportFile.delete();
