@@ -69,6 +69,14 @@
       .adjust-row output { min-width: 34px; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
       input[type="range"] { width: 100%; height: 24px; margin: 0 0 16px; accent-color: var(--accent-strong); cursor: pointer; }
       .helper-text { margin: 0 0 18px; color: var(--subtle); font-size: 11px; line-height: 1.65; }
+      .select-control { max-width: 150px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-soft); color: var(--ink); font-size: 12px; }
+      .color-control { width: 43px; height: 32px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-soft); }
+      .prop-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 12px; }
+      .prop-button { min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-soft); font-size: 23px; cursor: pointer; }
+      .prop-button:hover:not(:disabled), .prop-button:focus-visible { border-color: var(--accent); background: #d6a7ff12; }
+      .prop-custom { width: 100%; margin: 0 0 13px; }
+      .selected-prop { min-height: 17px; margin: 0 0 10px; color: var(--subtle); font-size: 11px; }
+      .prop-delete { width: 100%; min-height: 40px; margin: 0 0 15px; }
       .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
       .primary-btn, .secondary-btn { min-height: 48px; border: 0; border-radius: 14px; font-weight: 760; cursor: pointer; transition: .18s ease; }
       .primary-btn { background: var(--accent); color: #21172b; }
@@ -174,7 +182,37 @@
               <input id="scaleRange" type="range" min="14" max="72" value="30" disabled />
               <div class="adjust-row"><label for="edgeRange">가장자리 부드럽게</label><output id="edgeOutput" for="edgeRange">18</output></div>
               <input id="edgeRange" type="range" min="0" max="30" value="18" disabled />
-              <p class="helper-text">미리보기에서 얼굴을 손가락이나 마우스로 끌어 위치를 맞출 수 있어요.</p>
+              <div class="adjust-row"><label for="maskShape">테두리 모양</label>
+                <select id="maskShape" class="select-control" disabled>
+                  <option value="circle">원형</option><option value="rounded">둥근 사각형</option><option value="square">사각형</option>
+                </select>
+              </div>
+              <div class="adjust-row"><label for="borderColor">테두리 색</label><input id="borderColor" class="color-control" type="color" value="#d6a7ff" disabled /></div>
+              <div class="adjust-row"><label for="borderWidthRange">테두리 두께</label><output id="borderWidthOutput" for="borderWidthRange">0%</output></div>
+              <input id="borderWidthRange" type="range" min="0" max="6" value="0" step="1" disabled />
+              <p class="helper-text">미리보기에서 얼굴이나 소품을 끌어 위치를 맞춰요.</p>
+            </div>
+
+            <div class="adjustments" aria-label="소품 추가">
+              <div class="adjust-row"><label>소품 추가</label><span class="step-count">눌러서 넣기</span></div>
+              <div class="prop-grid" id="propPalette">
+                <button class="prop-button" type="button" data-sticker="🕶️" aria-label="선글라스 추가" disabled>🕶️</button>
+                <button class="prop-button" type="button" data-sticker="🎩" aria-label="모자 추가" disabled>🎩</button>
+                <button class="prop-button" type="button" data-sticker="👑" aria-label="왕관 추가" disabled>👑</button>
+                <button class="prop-button" type="button" data-sticker="🎀" aria-label="리본 추가" disabled>🎀</button>
+                <button class="prop-button" type="button" data-sticker="🌸" aria-label="꽃 추가" disabled>🌸</button>
+                <button class="prop-button" type="button" data-sticker="✨" aria-label="반짝이 추가" disabled>✨</button>
+                <button class="prop-button" type="button" data-sticker="❤️" aria-label="하트 추가" disabled>❤️</button>
+                <button class="prop-button" type="button" data-sticker="🥸" aria-label="변장 안경 추가" disabled>🥸</button>
+              </div>
+              <input id="stickerInput" type="file" accept="image/png,image/webp" hidden />
+              <button id="customStickerButton" class="secondary-btn prop-custom" type="button" disabled>투명 PNG·WebP 스티커 불러오기</button>
+              <p class="selected-prop" id="selectedStickerLabel">소품을 고르면 이동·크기·회전을 조절할 수 있어요.</p>
+              <div class="adjust-row"><label for="stickerSizeRange">선택 소품 크기</label><output id="stickerSizeOutput" for="stickerSizeRange">16%</output></div>
+              <input id="stickerSizeRange" type="range" min="5" max="36" value="16" disabled />
+              <div class="adjust-row"><label for="stickerRotationRange">선택 소품 회전</label><output id="stickerRotationOutput" for="stickerRotationRange">0°</output></div>
+              <input id="stickerRotationRange" type="range" min="-180" max="180" value="0" disabled />
+              <button id="deleteStickerButton" class="secondary-btn prop-delete" type="button" disabled>선택 소품 삭제</button>
             </div>
 
             <div class="action-row">
@@ -230,6 +268,19 @@
         const edgeRange = document.getElementById('edgeRange');
         const scaleOutput = document.getElementById('scaleOutput');
         const edgeOutput = document.getElementById('edgeOutput');
+        const maskShapeSelect = document.getElementById('maskShape');
+        const borderColorInput = document.getElementById('borderColor');
+        const borderWidthRange = document.getElementById('borderWidthRange');
+        const borderWidthOutput = document.getElementById('borderWidthOutput');
+        const propPalette = document.getElementById('propPalette');
+        const stickerInput = document.getElementById('stickerInput');
+        const customStickerButton = document.getElementById('customStickerButton');
+        const selectedStickerLabel = document.getElementById('selectedStickerLabel');
+        const stickerSizeRange = document.getElementById('stickerSizeRange');
+        const stickerSizeOutput = document.getElementById('stickerSizeOutput');
+        const stickerRotationRange = document.getElementById('stickerRotationRange');
+        const stickerRotationOutput = document.getElementById('stickerRotationOutput');
+        const deleteStickerButton = document.getElementById('deleteStickerButton');
         const saveButton = document.getElementById('saveButton');
         const shareButton = document.getElementById('shareButton');
         const canvasStatus = document.getElementById('canvasStatus');
@@ -241,6 +292,8 @@
         let faceImage = null;
         let backgroundImage = null;
         let faceLayer = null;
+        let stickers = [];
+        let selectedSticker = -1;
         let point = { x: 0.5, y: 0.5 };
         let drag = null;
         let installPrompt = null;
@@ -289,6 +342,57 @@
           }
         }
 
+        async function loadStickerFile(file) {
+          if (!file || !file.type.startsWith('image/')) throw new Error('이미지 스티커 파일을 선택해 주세요.');
+          if (file.size > 25 * 1024 * 1024) throw new Error('25MB 이하의 스티커를 선택해 주세요.');
+          if ('createImageBitmap' in window) {
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            const maxSide = 1000;
+            const factor = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+            const layer = document.createElement('canvas');
+            layer.width = Math.max(1, Math.round(bitmap.width * factor));
+            layer.height = Math.max(1, Math.round(bitmap.height * factor));
+            const g = layer.getContext('2d', { alpha: true });
+            g.imageSmoothingEnabled = true;
+            g.imageSmoothingQuality = 'high';
+            g.drawImage(bitmap, 0, 0, layer.width, layer.height);
+            bitmap.close?.();
+            return layer;
+          }
+          const url = URL.createObjectURL(file);
+          try {
+            const image = await new Promise((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.onerror = () => reject(new Error('스티커를 열 수 없어요.'));
+              img.src = url;
+            });
+            const maxSide = 1000;
+            const factor = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+            const layer = document.createElement('canvas');
+            layer.width = Math.max(1, Math.round(image.naturalWidth * factor));
+            layer.height = Math.max(1, Math.round(image.naturalHeight * factor));
+            const g = layer.getContext('2d', { alpha: true });
+            g.imageSmoothingEnabled = true;
+            g.imageSmoothingQuality = 'high';
+            g.drawImage(image, 0, 0, layer.width, layer.height);
+            return layer;
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        }
+
+        function traceMaskPath(g, shape, inset = 0) {
+          const side = 640;
+          const x = inset;
+          const y = inset;
+          const size = side - inset * 2;
+          g.beginPath();
+          if (shape === 'circle') g.arc(side / 2, side / 2, size / 2, 0, Math.PI * 2);
+          else if (shape === 'rounded') g.roundRect(x, y, size, size, size * 0.18);
+          else g.rect(x, y, size, size);
+        }
+
         function prepareFaceLayer() {
           if (!faceImage) { faceLayer = null; return; }
           const side = 640;
@@ -302,17 +406,124 @@
           g.imageSmoothingEnabled = true;
           g.imageSmoothingQuality = 'high';
           g.drawImage(faceImage, sx, sy, cropSide, cropSide, 0, 0, side, side);
-          const softness = Number(edgeRange.value) / 30;
-          const innerStop = Math.max(0.42, 0.96 - softness * 0.54);
+          const softness = Number(edgeRange.value);
+          const shape = maskShapeSelect.value;
           g.globalCompositeOperation = 'destination-in';
-          const gradient = g.createRadialGradient(side / 2, side / 2, side * innerStop * 0.5, side / 2, side / 2, side * 0.5);
-          gradient.addColorStop(0, 'rgba(255,255,255,1)');
-          gradient.addColorStop(0.82, 'rgba(255,255,255,0.96)');
-          gradient.addColorStop(1, 'rgba(255,255,255,0)');
-          g.fillStyle = gradient;
-          g.fillRect(0, 0, side, side);
+          if (shape === 'circle' && softness > 0) {
+            const amount = softness / 30;
+            const innerStop = Math.max(0.42, 0.96 - amount * 0.54);
+            const gradient = g.createRadialGradient(side / 2, side / 2, side * innerStop * 0.5, side / 2, side / 2, side * 0.5);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.82, 'rgba(255,255,255,0.96)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = gradient;
+            g.fillRect(0, 0, side, side);
+          } else {
+            const mask = document.createElement('canvas');
+            mask.width = side;
+            mask.height = side;
+            const mg = mask.getContext('2d');
+            mg.fillStyle = '#fff';
+            mg.filter = softness ? `blur(${Math.min(16, softness * 0.55)}px)` : 'none';
+            traceMaskPath(mg, shape);
+            mg.fill();
+            mg.filter = 'none';
+            g.drawImage(mask, 0, 0);
+          }
+          g.globalCompositeOperation = 'source-over';
+          const borderPercent = Number(borderWidthRange.value);
+          if (borderPercent > 0) {
+            const width = side * borderPercent / 100;
+            g.strokeStyle = borderColorInput.value;
+            g.lineWidth = width;
+            traceMaskPath(g, shape, width / 2);
+            g.stroke();
+          }
           g.globalCompositeOperation = 'source-over';
           faceLayer = layer;
+        }
+
+        function drawSticker(sticker) {
+          const centerX = sticker.x * canvas.width;
+          const centerY = sticker.y * canvas.height;
+          const size = Math.min(canvas.width, canvas.height) * sticker.size;
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          ctx.rotate(sticker.rotation * Math.PI / 180);
+          if (sticker.kind === 'image') {
+            const aspect = sticker.image.width / sticker.image.height;
+            const width = aspect >= 1 ? size : size * aspect;
+            const height = aspect >= 1 ? size / aspect : size;
+            ctx.drawImage(sticker.image, -width / 2, -height / 2, width, height);
+          } else {
+            ctx.font = `${size}px "Noto Color Emoji", "Apple Color Emoji", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(sticker.value, 0, 0);
+          }
+          ctx.restore();
+        }
+
+        function stickerHit(sticker, normalizedX, normalizedY) {
+          const dx = (normalizedX - sticker.x) * canvas.width;
+          const dy = (normalizedY - sticker.y) * canvas.height;
+          const angle = -sticker.rotation * Math.PI / 180;
+          const localX = dx * Math.cos(angle) - dy * Math.sin(angle);
+          const localY = dx * Math.sin(angle) + dy * Math.cos(angle);
+          const size = Math.min(canvas.width, canvas.height) * sticker.size;
+          let width = size;
+          let height = size;
+          if (sticker.kind === 'image') {
+            const aspect = sticker.image.width / sticker.image.height;
+            width = aspect >= 1 ? size : size * aspect;
+            height = aspect >= 1 ? size / aspect : size;
+          }
+          return Math.abs(localX) <= width * 0.58 && Math.abs(localY) <= height * 0.58;
+        }
+
+        function updateStickerControls() {
+          const item = stickers[selectedSticker];
+          const enabled = Boolean(item && backgroundImage);
+          stickerSizeRange.disabled = !enabled;
+          stickerRotationRange.disabled = !enabled;
+          deleteStickerButton.disabled = !enabled;
+          if (!item) {
+            selectedStickerLabel.textContent = '소품을 고르면 이동·크기·회전을 조절할 수 있어요.';
+            return;
+          }
+          stickerSizeRange.value = Math.round(item.size * 100);
+          stickerSizeOutput.value = `${stickerSizeRange.value}%`;
+          stickerSizeOutput.textContent = `${stickerSizeRange.value}%`;
+          stickerRotationRange.value = Math.round(item.rotation);
+          stickerRotationOutput.value = `${stickerRotationRange.value}°`;
+          stickerRotationOutput.textContent = `${stickerRotationRange.value}°`;
+          selectedStickerLabel.textContent = item.kind === 'image' ? `${item.label} 선택됨` : `${item.value} 선택됨`;
+        }
+
+        function addEmojiSticker(value) {
+          if (!backgroundImage || !faceImage) return;
+          stickers.push({ kind: 'emoji', value, x: point.x, y: point.y, size: 0.16, rotation: 0 });
+          selectedSticker = stickers.length - 1;
+          updateStickerControls();
+          draw();
+          say(`${value} 소품을 추가했어요. 미리보기에서 끌어 옮겨보세요.`);
+        }
+
+        async function handleStickerFile() {
+          const file = stickerInput.files && stickerInput.files[0];
+          if (!file) return;
+          try {
+            const image = await loadStickerFile(file);
+            stickers.push({ kind: 'image', image, label: file.name, x: point.x, y: point.y, size: 0.16, rotation: 0 });
+            selectedSticker = stickers.length - 1;
+            updateStickerControls();
+            draw();
+            say('투명 스티커를 추가했어요. 미리보기에서 끌어 옮겨보세요.');
+          } catch (error) {
+            say(error.message || '스티커를 불러오지 못했어요.');
+          } finally {
+            stickerInput.value = '';
+          }
         }
 
         function updateUi() {
@@ -321,10 +532,16 @@
           canvas.style.display = backgroundImage ? 'block' : 'none';
           scaleRange.disabled = !ready;
           edgeRange.disabled = !ready;
+          maskShapeSelect.disabled = !ready;
+          borderColorInput.disabled = !ready;
+          borderWidthRange.disabled = !ready;
+          propPalette.querySelectorAll('button').forEach((button) => { button.disabled = !ready; });
+          customStickerButton.disabled = !ready;
           saveButton.disabled = !ready;
           shareButton.disabled = !ready || (!navigator.share && !window.FaceStudioNative);
           stepCount.textContent = ready ? 'STEP 02 / 02' : faceImage || backgroundImage ? 'STEP 02 / 02' : 'STEP 01 / 02';
           canvasStatus.textContent = ready ? '두 사진을 기기에서 합성 중' : faceImage ? '이제 배경 사진을 선택해 주세요' : backgroundImage ? '이제 얼굴 사진을 선택해 주세요' : '아직 선택한 사진이 없어요';
+          updateStickerControls();
           if (ready) draw();
         }
 
@@ -337,11 +554,13 @@
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
-          if (!faceLayer) return;
-          const size = Math.min(canvas.width, canvas.height) * Number(scaleRange.value) / 100;
-          const x = point.x * canvas.width;
-          const y = point.y * canvas.height;
-          ctx.drawImage(faceLayer, x - size / 2, y - size / 2, size, size);
+          if (faceLayer) {
+            const size = Math.min(canvas.width, canvas.height) * Number(scaleRange.value) / 100;
+            const x = point.x * canvas.width;
+            const y = point.y * canvas.height;
+            ctx.drawImage(faceLayer, x - size / 2, y - size / 2, size, size);
+          }
+          stickers.forEach(drawSticker);
         }
 
         async function handleFile(input, type) {
@@ -379,18 +598,80 @@
           prepareFaceLayer();
           draw();
         });
+        maskShapeSelect.addEventListener('change', () => { prepareFaceLayer(); draw(); });
+        borderColorInput.addEventListener('input', () => { prepareFaceLayer(); draw(); });
+        borderWidthRange.addEventListener('input', () => {
+          borderWidthOutput.value = `${borderWidthRange.value}%`;
+          borderWidthOutput.textContent = `${borderWidthRange.value}%`;
+          prepareFaceLayer();
+          draw();
+        });
+        propPalette.addEventListener('click', (event) => {
+          const button = event.target.closest('button[data-sticker]');
+          if (button && !button.disabled) addEmojiSticker(button.dataset.sticker);
+        });
+        customStickerButton.addEventListener('click', () => stickerInput.click());
+        stickerInput.addEventListener('change', handleStickerFile);
+        stickerSizeRange.addEventListener('input', () => {
+          const item = stickers[selectedSticker];
+          if (!item) return;
+          item.size = Number(stickerSizeRange.value) / 100;
+          stickerSizeOutput.value = `${stickerSizeRange.value}%`;
+          stickerSizeOutput.textContent = `${stickerSizeRange.value}%`;
+          draw();
+        });
+        stickerRotationRange.addEventListener('input', () => {
+          const item = stickers[selectedSticker];
+          if (!item) return;
+          item.rotation = Number(stickerRotationRange.value);
+          stickerRotationOutput.value = `${stickerRotationRange.value}°`;
+          stickerRotationOutput.textContent = `${stickerRotationRange.value}°`;
+          draw();
+        });
+        deleteStickerButton.addEventListener('click', () => {
+          if (selectedSticker < 0) return;
+          stickers.splice(selectedSticker, 1);
+          selectedSticker = -1;
+          updateStickerControls();
+          draw();
+          say('선택한 소품을 삭제했어요.');
+        });
 
         canvas.addEventListener('pointerdown', (event) => {
-          if (!faceLayer || !backgroundImage) return;
+          if (!backgroundImage) return;
           canvas.setPointerCapture(event.pointerId);
           const rect = canvas.getBoundingClientRect();
-          drag = { x: event.clientX, y: event.clientY, pointX: point.x, pointY: point.y, width: rect.width, height: rect.height };
+          const x = (event.clientX - rect.left) / rect.width;
+          const y = (event.clientY - rect.top) / rect.height;
+          let hit = -1;
+          for (let i = stickers.length - 1; i >= 0; i--) {
+            if (stickerHit(stickers[i], x, y)) { hit = i; break; }
+          }
+          if (hit >= 0) {
+            selectedSticker = hit;
+            const item = stickers[hit];
+            drag = { type: 'sticker', index: hit, x: event.clientX, y: event.clientY, pointX: item.x, pointY: item.y, width: rect.width, height: rect.height };
+          } else if (faceLayer) {
+            selectedSticker = -1;
+            drag = { type: 'face', x: event.clientX, y: event.clientY, pointX: point.x, pointY: point.y, width: rect.width, height: rect.height };
+          } else {
+            drag = null;
+          }
+          updateStickerControls();
+          draw();
         });
         canvas.addEventListener('pointermove', (event) => {
           if (!drag) return;
           const rect = canvas.getBoundingClientRect();
-          point.x = Math.min(1, Math.max(0, drag.pointX + (event.clientX - drag.x) / rect.width));
-          point.y = Math.min(1, Math.max(0, drag.pointY + (event.clientY - drag.y) / rect.height));
+          const x = Math.min(1, Math.max(0, drag.pointX + (event.clientX - drag.x) / rect.width));
+          const y = Math.min(1, Math.max(0, drag.pointY + (event.clientY - drag.y) / rect.height));
+          if (drag.type === 'sticker') {
+            const item = stickers[drag.index];
+            if (item) { item.x = x; item.y = y; }
+          } else {
+            point.x = x;
+            point.y = y;
+          }
           draw();
         });
         const endDrag = () => { drag = null; };
