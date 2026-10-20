@@ -124,6 +124,19 @@
       dialog ol { padding-left: 20px; }
       dialog .primary-btn { width: 100%; margin-top: 8px; }
       .props-dialog { width: min(500px, calc(100vw - 30px)); max-height: min(88vh, 760px); overflow-y: auto; }
+      .face-crop-dialog { width: min(540px, calc(100vw - 28px)); max-height: min(94vh, 900px); overflow-y: auto; padding: 19px; }
+      .face-crop-dialog > p { margin: 10px 0 14px; }
+      .crop-stage { width: min(100%, 460px); aspect-ratio: 1; margin: 0 auto 12px; overflow: hidden; border: 1px solid #554b5d; border-radius: 16px; background: #29252e; touch-action: none; }
+      .crop-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+      .crop-stage canvas:active { cursor: grabbing; }
+      .crop-position-label { margin: 10px 0 7px; color: var(--muted); font-size: 12px; }
+      .crop-position-pad { width: min(100%, 220px); margin: 0 auto 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .crop-position-pad button { min-height: 40px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel-soft); font-size: 15px; cursor: pointer; }
+      .crop-position-pad button:hover { border-color: var(--accent); }
+      .crop-position-pad button:nth-child(5) { color: var(--accent); font-size: 11px; font-weight: 700; }
+      .crop-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 8px; }
+      .crop-actions button { min-height: 46px; margin: 0 !important; }
+      .face-crop-picker { width: 100%; min-height: 44px; margin: 0 0 10px; }
       .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
       .dialog-heading h2 { margin: 0; }
       .dialog-close { flex: 0 0 auto; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; background: var(--panel-soft); color: var(--ink); font-size: 21px; line-height: 1; cursor: pointer; }
@@ -207,6 +220,8 @@
             <p class="helper-text background-status" id="backgroundRemovalStatus" role="status" aria-live="polite">얼굴 사진을 선택하면 원래 배경을 기기 안에서 자동으로 분리할 수 있어요.</p>
 
             <div class="adjustments" aria-label="얼굴 사진 조절">
+              <button id="faceCropButton" class="secondary-btn face-crop-picker" type="button" disabled>합성에 쓸 얼굴 부위 선택</button>
+              <p class="helper-text">사진을 고르면 영역 선택 창이 열려요. 합성에 넣을 부위를 손가락으로 끌어 고르고 확대할 수 있어요.</p>
               <div class="adjust-row"><label for="scaleRange">배경 위 얼굴 칸 크기</label><output id="scaleOutput" for="scaleRange">30%</output></div>
               <div class="range-stepper" aria-label="얼굴 사진 크기 조절">
                 <button class="step-button" id="faceSizeDownButton" type="button" aria-label="얼굴 사진 작게" disabled>−</button>
@@ -269,6 +284,34 @@
       </main>
     </div>
 
+    <dialog id="faceCropDialog" class="face-crop-dialog" aria-labelledby="faceCropTitle" aria-describedby="faceCropHelp">
+      <div class="dialog-heading">
+        <h2 id="faceCropTitle">합성할 부위 선택</h2>
+      </div>
+      <p id="faceCropHelp">네모 안에 들어오는 부분이 합성돼요. 사진을 끌어 위치를 옮기고, 아래 막대로 확대하세요.</p>
+      <div class="crop-stage" id="faceCropStage">
+        <canvas id="faceCropCanvas" width="640" height="640" aria-label="합성할 사진 영역을 끌어서 선택"></canvas>
+      </div>
+      <div class="adjust-row"><label for="faceCropZoomRange">선택 영역 확대</label><output id="faceCropZoomOutput" for="faceCropZoomRange">100%</output></div>
+      <input id="faceCropZoomRange" type="range" min="100" max="400" value="100" step="1" aria-label="선택 영역 확대" />
+      <p class="crop-position-label">방향 버튼으로도 선택 영역을 움직일 수 있어요</p>
+      <div class="crop-position-pad" aria-label="사진 영역 이동">
+        <button type="button" data-crop-move="-1,-1" aria-label="영역을 왼쪽 위로 이동">↖</button>
+        <button type="button" data-crop-move="0,-1" aria-label="영역을 위로 이동">↑</button>
+        <button type="button" data-crop-move="1,-1" aria-label="영역을 오른쪽 위로 이동">↗</button>
+        <button type="button" data-crop-move="-1,0" aria-label="영역을 왼쪽으로 이동">←</button>
+        <button type="button" data-crop-center aria-label="영역을 가운데로 되돌리기">중앙</button>
+        <button type="button" data-crop-move="1,0" aria-label="영역을 오른쪽으로 이동">→</button>
+        <button type="button" data-crop-move="-1,1" aria-label="영역을 왼쪽 아래로 이동">↙</button>
+        <button type="button" data-crop-move="0,1" aria-label="영역을 아래로 이동">↓</button>
+        <button type="button" data-crop-move="1,1" aria-label="영역을 오른쪽 아래로 이동">↘</button>
+      </div>
+      <div class="crop-actions">
+        <button class="secondary-btn" id="cancelFaceCropButton" type="button">취소</button>
+        <button class="primary-btn" id="applyFaceCropButton" type="button">이 부위로 적용</button>
+      </div>
+    </dialog>
+
     <dialog id="propsDialog" class="props-dialog" aria-labelledby="propsDialogTitle">
       <div class="dialog-heading">
         <h2 id="propsDialogTitle">소품 고르기</h2>
@@ -322,6 +365,13 @@
         const emptyState = document.getElementById('emptyState');
         const faceName = document.getElementById('faceFileName');
         const backgroundName = document.getElementById('backgroundFileName');
+        const faceCropButton = document.getElementById('faceCropButton');
+        const faceCropDialog = document.getElementById('faceCropDialog');
+        const faceCropCanvas = document.getElementById('faceCropCanvas');
+        const faceCropCtx = faceCropCanvas.getContext('2d');
+        const faceCropStage = document.getElementById('faceCropStage');
+        const faceCropZoomRange = document.getElementById('faceCropZoomRange');
+        const faceCropZoomOutput = document.getElementById('faceCropZoomOutput');
         const scaleRange = document.getElementById('scaleRange');
         const faceSizeDownButton = document.getElementById('faceSizeDownButton');
         const faceSizeUpButton = document.getElementById('faceSizeUpButton');
@@ -365,6 +415,9 @@
         const toast = document.getElementById('toast');
         let faceImage = null;
         let originalFaceImage = null;
+        let faceCrop = null;
+        let draftFaceCrop = null;
+        let faceCropDrag = null;
         let backgroundRemoved = false;
         let currentRemovalId = null;
         let currentStickerRemovalId = null;
@@ -546,6 +599,77 @@
           else g.rect(x, y, size, size);
         }
 
+        function clampFaceCrop(crop) {
+          if (!faceImage) return null;
+          const side = Math.max(1, Math.min(crop.side, faceImage.width, faceImage.height));
+          return {
+            side,
+            x: Math.max(0, Math.min(faceImage.width - side, crop.x)),
+            y: Math.max(0, Math.min(faceImage.height - side, crop.y))
+          };
+        }
+
+        function drawFaceCropEditor() {
+          if (!faceImage || !draftFaceCrop) return;
+          draftFaceCrop = clampFaceCrop(draftFaceCrop);
+          const size = faceCropCanvas.width;
+          faceCropCtx.clearRect(0, 0, size, size);
+          faceCropCtx.fillStyle = '#29252e';
+          faceCropCtx.fillRect(0, 0, size, size);
+          faceCropCtx.imageSmoothingEnabled = true;
+          faceCropCtx.imageSmoothingQuality = 'high';
+          faceCropCtx.drawImage(faceImage, draftFaceCrop.x, draftFaceCrop.y, draftFaceCrop.side, draftFaceCrop.side, 0, 0, size, size);
+          faceCropCtx.save();
+          faceCropCtx.strokeStyle = '#ffffff55';
+          faceCropCtx.lineWidth = 1;
+          faceCropCtx.setLineDash([6, 7]);
+          for (let i = 1; i <= 2; i++) {
+            const p = size * i / 3;
+            faceCropCtx.beginPath(); faceCropCtx.moveTo(p, 0); faceCropCtx.lineTo(p, size); faceCropCtx.stroke();
+            faceCropCtx.beginPath(); faceCropCtx.moveTo(0, p); faceCropCtx.lineTo(size, p); faceCropCtx.stroke();
+          }
+          faceCropCtx.setLineDash([]);
+          faceCropCtx.strokeStyle = '#ffffffc9';
+          faceCropCtx.lineWidth = 3;
+          const corner = size * 0.07;
+          [[0,0,1,1],[size,0,-1,1],[0,size,1,-1],[size,size,-1,-1]].forEach(([x,y,h,v]) => {
+            faceCropCtx.beginPath();
+            faceCropCtx.moveTo(x + h * corner, y);
+            faceCropCtx.lineTo(x, y);
+            faceCropCtx.lineTo(x, y + v * corner);
+            faceCropCtx.stroke();
+          });
+          faceCropCtx.restore();
+          const zoom = Math.round(Math.min(faceImage.width, faceImage.height) / draftFaceCrop.side * 100);
+          faceCropZoomRange.value = String(Math.max(100, Math.min(400, zoom)));
+          faceCropZoomOutput.value = `${faceCropZoomRange.value}%`;
+          faceCropZoomOutput.textContent = `${faceCropZoomRange.value}%`;
+        }
+
+        function openFaceCropDialog() {
+          if (!faceImage || !faceCrop) return;
+          draftFaceCrop = { ...faceCrop };
+          drawFaceCropEditor();
+          faceCropDialog.showModal();
+        }
+
+        function setFaceCropZoom(percent) {
+          if (!faceImage || !draftFaceCrop) return;
+          const baseSide = Math.min(faceImage.width, faceImage.height);
+          const nextSide = baseSide / Math.max(1, Math.min(400, percent) / 100);
+          const centerX = draftFaceCrop.x + draftFaceCrop.side / 2;
+          const centerY = draftFaceCrop.y + draftFaceCrop.side / 2;
+          draftFaceCrop = clampFaceCrop({ side: nextSide, x: centerX - nextSide / 2, y: centerY - nextSide / 2 });
+          drawFaceCropEditor();
+        }
+
+        function moveFaceCrop(dx, dy) {
+          if (!faceImage || !draftFaceCrop) return;
+          const step = draftFaceCrop.side * 0.18;
+          draftFaceCrop = clampFaceCrop({ ...draftFaceCrop, x: draftFaceCrop.x + dx * step, y: draftFaceCrop.y + dy * step });
+          drawFaceCropEditor();
+        }
+
         function prepareFaceLayer() {
           if (!faceImage) { faceLayer = null; return; }
           const side = 640;
@@ -555,17 +679,13 @@
           const g = layer.getContext('2d');
           g.imageSmoothingEnabled = true;
           g.imageSmoothingQuality = 'high';
-          if (maskShapeSelect.value === 'person' && backgroundRemoved) {
-            const fit = Math.min(side / faceImage.width, side / faceImage.height);
-            const width = faceImage.width * fit;
-            const height = faceImage.height * fit;
-            g.drawImage(faceImage, (side - width) / 2, (side - height) / 2, width, height);
-          } else {
-            const cropSide = Math.min(faceImage.width, faceImage.height);
-            const sx = (faceImage.width - cropSide) / 2;
-            const sy = (faceImage.height - cropSide) / 2;
-            g.drawImage(faceImage, sx, sy, cropSide, cropSide, 0, 0, side, side);
-          }
+          const defaultCropSide = Math.min(faceImage.width, faceImage.height);
+          const selectedCrop = clampFaceCrop(faceCrop || {
+            side: defaultCropSide,
+            x: (faceImage.width - defaultCropSide) / 2,
+            y: (faceImage.height - defaultCropSide) / 2
+          });
+          g.drawImage(faceImage, selectedCrop.x, selectedCrop.y, selectedCrop.side, selectedCrop.side, 0, 0, side, side);
           const softness = Number(edgeRange.value);
           const shape = maskShapeSelect.value;
           if (shape !== 'person') g.globalCompositeOperation = 'destination-in';
@@ -758,6 +878,7 @@
           scaleRange.disabled = !faceImage;
           faceSizeDownButton.disabled = !faceImage;
           faceSizeUpButton.disabled = !faceImage;
+          faceCropButton.disabled = !faceImage;
           edgeRange.disabled = !ready || (maskShapeSelect.value === 'person' && backgroundRemoved);
           maskShapeSelect.disabled = !ready;
           maskShapeSelect.querySelector('option[value="person"]').disabled = !backgroundRemoved;
@@ -804,6 +925,8 @@
               currentRemovalId = null;
               faceImage = image;
               originalFaceImage = image;
+              const cropSide = Math.min(image.width, image.height);
+              faceCrop = { side: cropSide, x: (image.width - cropSide) / 2, y: (image.height - cropSide) / 2 };
               backgroundRemoved = false;
               maskShapeBeforeRemoval = 'circle';
               maskShapeSelect.value = 'circle';
@@ -817,6 +940,7 @@
               point = { x: 0.5, y: 0.5 };
             }
             updateUi();
+            if (type === 'face') openFaceCropDialog();
           } catch (error) {
             say(error.message || '사진을 불러오지 못했어요.');
           } finally {
@@ -826,6 +950,55 @@
 
         faceInput.addEventListener('change', () => handleFile(faceInput, 'face'));
         backgroundInput.addEventListener('change', () => handleFile(backgroundInput, 'background'));
+        faceCropButton.addEventListener('click', openFaceCropDialog);
+        faceCropZoomRange.addEventListener('input', () => setFaceCropZoom(Number(faceCropZoomRange.value)));
+        faceCropCanvas.addEventListener('pointerdown', (event) => {
+          if (!faceImage || !draftFaceCrop) return;
+          event.preventDefault();
+          faceCropDrag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, crop: { ...draftFaceCrop } };
+          faceCropCanvas.setPointerCapture(event.pointerId);
+        });
+        faceCropCanvas.addEventListener('pointermove', (event) => {
+          if (!faceCropDrag || faceCropDrag.pointerId !== event.pointerId) return;
+          const rect = faceCropCanvas.getBoundingClientRect();
+          const deltaX = (event.clientX - faceCropDrag.x) * faceCropCanvas.width / rect.width;
+          const deltaY = (event.clientY - faceCropDrag.y) * faceCropCanvas.height / rect.height;
+          const pixelsPerCanvas = faceCropDrag.crop.side / faceCropCanvas.width;
+          draftFaceCrop = clampFaceCrop({
+            ...faceCropDrag.crop,
+            x: faceCropDrag.crop.x - deltaX * pixelsPerCanvas,
+            y: faceCropDrag.crop.y - deltaY * pixelsPerCanvas
+          });
+          drawFaceCropEditor();
+        });
+        const endFaceCropDrag = (event) => {
+          if (!faceCropDrag || faceCropDrag.pointerId !== event.pointerId) return;
+          faceCropDrag = null;
+          if (faceCropCanvas.hasPointerCapture(event.pointerId)) faceCropCanvas.releasePointerCapture(event.pointerId);
+        };
+        faceCropCanvas.addEventListener('pointerup', endFaceCropDrag);
+        faceCropCanvas.addEventListener('pointercancel', endFaceCropDrag);
+        faceCropDialog.querySelectorAll('[data-crop-move]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const [dx, dy] = button.dataset.cropMove.split(',').map(Number);
+            moveFaceCrop(dx, dy);
+          });
+        });
+        faceCropDialog.querySelector('[data-crop-center]').addEventListener('click', () => {
+          if (!faceImage || !draftFaceCrop) return;
+          const side = draftFaceCrop.side;
+          draftFaceCrop = clampFaceCrop({ side, x: (faceImage.width - side) / 2, y: (faceImage.height - side) / 2 });
+          drawFaceCropEditor();
+        });
+        document.getElementById('cancelFaceCropButton').addEventListener('click', () => faceCropDialog.close());
+        document.getElementById('applyFaceCropButton').addEventListener('click', () => {
+          if (!faceImage || !draftFaceCrop) return;
+          faceCrop = clampFaceCrop(draftFaceCrop);
+          prepareFaceLayer();
+          draw();
+          faceCropDialog.close();
+          say('선택한 부위를 합성에 적용했어요.');
+        });
         removeBackgroundButton.addEventListener('click', () => {
           if (!originalFaceImage || currentStickerRemovalId) return;
           if (!window.FaceStudioNative || !window.FaceStudioNative.removeBackground) {
