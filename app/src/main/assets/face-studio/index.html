@@ -76,6 +76,11 @@
       .helper-text { margin: 0 0 18px; color: var(--subtle); font-size: 11px; line-height: 1.65; }
       .select-control { max-width: 150px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-soft); color: var(--ink); font-size: 12px; }
       .color-control { width: 43px; height: 32px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-soft); }
+      .border-color-palette { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 9px; margin: 0 0 16px; }
+      .border-color-swatch { width: 100%; min-width: 0; aspect-ratio: 1; padding: 0; border: 2px solid #ffffff42; border-radius: 50%; background: var(--swatch-color); cursor: pointer; }
+      .border-color-swatch[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .border-color-swatch:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+      .border-color-swatch:disabled { cursor: not-allowed; }
       .background-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
       .background-tools button { min-height: 42px; font-size: 12px; }
       .background-status { min-height: 18px; margin: 7px 0 0; }
@@ -230,6 +235,12 @@
                 <input id="scaleRange" type="range" min="5" max="100" step="1" value="30" aria-label="배경 위 얼굴 사진 크기" disabled />
                 <button class="step-button" id="faceSizeUpButton" type="button" aria-label="얼굴 사진 크게" disabled>+</button>
               </div>
+              <div class="adjust-row"><label for="faceRotationRange">배경 위 얼굴 각도</label><output id="faceRotationOutput" for="faceRotationRange">0°</output></div>
+              <div class="range-stepper" aria-label="배경 위 얼굴 각도 조절">
+                <button class="step-button" id="faceRotationDownButton" type="button" aria-label="얼굴 사진 왼쪽으로 5도 회전" disabled>−</button>
+                <input id="faceRotationRange" type="range" min="-180" max="180" step="1" value="0" aria-label="배경 위 얼굴 사진 각도" disabled />
+                <button class="step-button" id="faceRotationUpButton" type="button" aria-label="얼굴 사진 오른쪽으로 5도 회전" disabled>+</button>
+              </div>
               <div class="adjust-row"><label for="edgeRange">가장자리 부드럽게</label><output id="edgeOutput" for="edgeRange">18</output></div>
               <input id="edgeRange" type="range" min="0" max="30" value="18" disabled />
               <div class="adjust-row"><label for="maskShape">테두리 모양</label>
@@ -254,6 +265,24 @@
                 </select>
               </div>
               <div class="adjust-row"><label for="borderColor">테두리 색</label><input id="borderColor" class="color-control" type="color" value="#d6a7ff" disabled /></div>
+              <div id="borderColorPalette" class="border-color-palette" role="group" aria-label="테두리 기본 색상">
+                <button class="border-color-swatch" type="button" data-color="#ffffff" style="--swatch-color:#ffffff" aria-label="흰색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#111111" style="--swatch-color:#111111" aria-label="검정색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#d6a7ff" style="--swatch-color:#d6a7ff" aria-label="연보라색" aria-pressed="true" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#7c3aed" style="--swatch-color:#7c3aed" aria-label="보라색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#ff78b7" style="--swatch-color:#ff78b7" aria-label="분홍색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#e11d48" style="--swatch-color:#e11d48" aria-label="빨간색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#f97316" style="--swatch-color:#f97316" aria-label="주황색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#facc15" style="--swatch-color:#facc15" aria-label="노란색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#84cc16" style="--swatch-color:#84cc16" aria-label="연두색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#10b981" style="--swatch-color:#10b981" aria-label="초록색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#2dd4bf" style="--swatch-color:#2dd4bf" aria-label="민트색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#38bdf8" style="--swatch-color:#38bdf8" aria-label="하늘색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#2563eb" style="--swatch-color:#2563eb" aria-label="파란색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#6366f1" style="--swatch-color:#6366f1" aria-label="남색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#a16207" style="--swatch-color:#a16207" aria-label="갈색" aria-pressed="false" disabled></button>
+                <button class="border-color-swatch" type="button" data-color="#94a3b8" style="--swatch-color:#94a3b8" aria-label="회색" aria-pressed="false" disabled></button>
+              </div>
               <div class="adjust-row"><label for="borderWidthRange">테두리 두께</label><output id="borderWidthOutput" for="borderWidthRange">0%</output></div>
               <input id="borderWidthRange" type="range" min="0" max="6" value="0" step="1" disabled />
               <p class="helper-text">얼굴 사진만 먼저 골라도 크기를 정할 수 있어요. − / + 또는 막대로 바꾸고, 배경을 고른 뒤 미리보기에서 끌어 위치를 옮겨요.</p>
@@ -397,6 +426,10 @@
         const scaleRange = document.getElementById('scaleRange');
         const faceSizeDownButton = document.getElementById('faceSizeDownButton');
         const faceSizeUpButton = document.getElementById('faceSizeUpButton');
+        const faceRotationRange = document.getElementById('faceRotationRange');
+        const faceRotationOutput = document.getElementById('faceRotationOutput');
+        const faceRotationDownButton = document.getElementById('faceRotationDownButton');
+        const faceRotationUpButton = document.getElementById('faceRotationUpButton');
         const edgeRange = document.getElementById('edgeRange');
         const scaleOutput = document.getElementById('scaleOutput');
         const edgeOutput = document.getElementById('edgeOutput');
@@ -407,6 +440,7 @@
         const bubbleTailDirectionRow = document.getElementById('bubbleTailDirectionRow');
         const bubbleTailDirectionSelect = document.getElementById('bubbleTailDirection');
         const borderColorInput = document.getElementById('borderColor');
+        const borderColorPalette = document.getElementById('borderColorPalette');
         const borderWidthRange = document.getElementById('borderWidthRange');
         const borderWidthOutput = document.getElementById('borderWidthOutput');
         const stickerPickerButton = document.getElementById('stickerPickerButton');
@@ -448,6 +482,7 @@
         let maskShapeBeforeRemoval = 'circle';
         let backgroundImage = null;
         let faceLayer = null;
+        let faceRotation = 0;
         let stickers = [];
         let selectedSticker = -1;
         let draftSticker = null;
@@ -980,6 +1015,9 @@
           scaleRange.disabled = !faceImage;
           faceSizeDownButton.disabled = !faceImage;
           faceSizeUpButton.disabled = !faceImage;
+          faceRotationRange.disabled = !faceImage;
+          faceRotationDownButton.disabled = !faceImage;
+          faceRotationUpButton.disabled = !faceImage;
           faceCropButton.disabled = !faceImage;
           edgeRange.disabled = !ready || (maskShapeSelect.value === 'person' && backgroundRemoved);
           maskShapeSelect.disabled = !ready;
@@ -988,6 +1026,8 @@
           bubbleTailDirectionRow.hidden = !hasBubbleTail;
           bubbleTailDirectionSelect.disabled = !ready || !hasBubbleTail;
           borderColorInput.disabled = !ready;
+          borderColorPalette.querySelectorAll('button[data-color]').forEach((button) => { button.disabled = !ready; });
+          updateBorderPaletteSelection();
           borderWidthRange.disabled = !ready;
           removeBackgroundButton.disabled = !faceImage || Boolean(currentRemovalId || currentStickerRemovalId);
           restoreFaceButton.disabled = !backgroundRemoved;
@@ -1016,7 +1056,11 @@
             const size = Math.min(canvas.width, canvas.height) * Number(scaleRange.value) / 100;
             const x = point.x * canvas.width;
             const y = point.y * canvas.height;
-            ctx.drawImage(faceLayer, x - size / 2, y - size / 2, size, size);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(faceRotation * Math.PI / 180);
+            ctx.drawImage(faceLayer, -size / 2, -size / 2, size, size);
+            ctx.restore();
           }
           stickers.forEach(drawSticker);
         }
@@ -1030,6 +1074,10 @@
               currentRemovalId = null;
               faceImage = image;
               originalFaceImage = image;
+              faceRotation = 0;
+              faceRotationRange.value = '0';
+              faceRotationOutput.value = '0°';
+              faceRotationOutput.textContent = '0°';
               const cropSide = Math.min(image.width, image.height);
               faceCrop = { side: cropSide, x: (image.width - cropSide) / 2, y: (image.height - cropSide) / 2, rotation: 0 };
               backgroundRemoved = false;
@@ -1171,6 +1219,16 @@
         scaleRange.addEventListener('input', () => setFaceScale(Number(scaleRange.value)));
         faceSizeDownButton.addEventListener('click', () => setFaceScale(Number(scaleRange.value) - 5));
         faceSizeUpButton.addEventListener('click', () => setFaceScale(Number(scaleRange.value) + 5));
+        function setFaceRotation(degrees) {
+          faceRotation = Math.max(Number(faceRotationRange.min), Math.min(Number(faceRotationRange.max), Math.round(degrees)));
+          faceRotationRange.value = String(faceRotation);
+          faceRotationOutput.value = `${faceRotation}°`;
+          faceRotationOutput.textContent = `${faceRotation}°`;
+          draw();
+        }
+        faceRotationRange.addEventListener('input', () => setFaceRotation(Number(faceRotationRange.value)));
+        faceRotationDownButton.addEventListener('click', () => setFaceRotation(faceRotation - 5));
+        faceRotationUpButton.addEventListener('click', () => setFaceRotation(faceRotation + 5));
         edgeRange.addEventListener('input', () => {
           edgeOutput.value = edgeRange.value;
           edgeOutput.textContent = edgeRange.value;
@@ -1179,7 +1237,22 @@
         });
         maskShapeSelect.addEventListener('change', () => { updateUi(); prepareFaceLayer(); draw(); });
         bubbleTailDirectionSelect.addEventListener('change', () => { prepareFaceLayer(); draw(); });
-        borderColorInput.addEventListener('input', () => { prepareFaceLayer(); draw(); });
+        function updateBorderPaletteSelection() {
+          borderColorPalette.querySelectorAll('button[data-color]').forEach((button) => {
+            button.setAttribute('aria-pressed', button.dataset.color.toLowerCase() === borderColorInput.value.toLowerCase() ? 'true' : 'false');
+          });
+        }
+        function setBorderColor(color) {
+          borderColorInput.value = color;
+          updateBorderPaletteSelection();
+          prepareFaceLayer();
+          draw();
+        }
+        borderColorInput.addEventListener('input', () => { updateBorderPaletteSelection(); prepareFaceLayer(); draw(); });
+        borderColorPalette.addEventListener('click', (event) => {
+          const button = event.target.closest('button[data-color]');
+          if (button && !button.disabled) setBorderColor(button.dataset.color);
+        });
         borderWidthRange.addEventListener('input', () => {
           borderWidthOutput.value = `${borderWidthRange.value}%`;
           borderWidthOutput.textContent = `${borderWidthRange.value}%`;
