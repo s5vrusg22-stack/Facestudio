@@ -78,6 +78,7 @@
       .prop-button { min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-soft); font-size: 23px; cursor: pointer; }
       .prop-button:hover:not(:disabled), .prop-button:focus-visible { border-color: var(--accent); background: #d6a7ff12; }
       .prop-custom { width: 100%; margin: 0 0 13px; }
+      .prop-picker { width: 100%; min-height: 46px; margin: 0 0 12px; }
       .selected-prop { min-height: 17px; margin: 0 0 10px; color: var(--subtle); font-size: 11px; }
       .prop-delete { width: 100%; min-height: 40px; margin: 0 0 15px; }
       .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
@@ -117,6 +118,20 @@
       dialog p, dialog li { color: var(--muted); font-size: 13px; line-height: 1.7; }
       dialog ol { padding-left: 20px; }
       dialog .primary-btn { width: 100%; margin-top: 8px; }
+      .props-dialog { width: min(500px, calc(100vw - 30px)); max-height: min(88vh, 760px); overflow-y: auto; }
+      .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+      .dialog-heading h2 { margin: 0; }
+      .dialog-close { flex: 0 0 auto; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; background: var(--panel-soft); color: var(--ink); font-size: 21px; line-height: 1; cursor: pointer; }
+      .props-dialog > p { margin: 10px 0 14px; }
+      .props-dialog .prop-grid { margin-top: 0; }
+      .sticker-preview { min-height: 150px; margin: 14px 0; display: grid; place-items: center; overflow: hidden; border: 1px solid #49414f; border-radius: 15px; background-color: #24212a; background-image: linear-gradient(45deg,#ffffff09 25%,transparent 25%),linear-gradient(-45deg,#ffffff09 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ffffff09 75%),linear-gradient(-45deg,transparent 75%,#ffffff09 75%); background-size: 20px 20px; background-position: 0 0,0 10px,10px -10px,-10px 0; }
+      .sticker-preview-text { color: var(--ink); font-size: 52px; line-height: 1; transform-origin: center; }
+      .sticker-preview img { display: block; max-width: 90%; max-height: 130px; object-fit: contain; transform-origin: center; }
+      .sticker-preview img[hidden] { display: none; }
+      .draft-hint { min-height: 18px; margin: 0; color: var(--subtle) !important; font-size: 11px !important; }
+      .props-dialog input[type="range"] { margin-bottom: 12px; }
+      .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 8px; }
+      .dialog-actions button { min-height: 46px; margin: 0 !important; }
       @media (max-width: 780px) {
         .app-shell { padding-inline: 13px; }
         .hero { margin-top: 26px; align-items: flex-start; flex-direction: column; gap: 14px; }
@@ -204,22 +219,11 @@
             </div>
 
             <div class="adjustments" aria-label="소품 추가">
-              <div class="adjust-row"><label>소품 추가</label><span class="step-count">눌러서 넣기</span></div>
-              <div class="prop-grid" id="propPalette">
-                <button class="prop-button" type="button" data-sticker="🕶️" aria-label="선글라스 추가" disabled>🕶️</button>
-                <button class="prop-button" type="button" data-sticker="🎩" aria-label="모자 추가" disabled>🎩</button>
-                <button class="prop-button" type="button" data-sticker="👑" aria-label="왕관 추가" disabled>👑</button>
-                <button class="prop-button" type="button" data-sticker="🎀" aria-label="리본 추가" disabled>🎀</button>
-                <button class="prop-button" type="button" data-sticker="🌸" aria-label="꽃 추가" disabled>🌸</button>
-                <button class="prop-button" type="button" data-sticker="✨" aria-label="반짝이 추가" disabled>✨</button>
-                <button class="prop-button" type="button" data-sticker="❤️" aria-label="하트 추가" disabled>❤️</button>
-                <button class="prop-button" type="button" data-sticker="🥸" aria-label="변장 안경 추가" disabled>🥸</button>
-              </div>
-              <input id="stickerInput" type="file" accept="image/png,image/webp" hidden />
-              <button id="customStickerButton" class="secondary-btn prop-custom" type="button" disabled>투명 PNG·WebP 스티커 불러오기</button>
+              <div class="adjust-row"><label>소품 추가</label><span class="step-count">여러 개 가능</span></div>
+              <button id="stickerPickerButton" class="secondary-btn prop-picker" type="button" disabled>소품 고르기 · 크기 설정</button>
               <p class="selected-prop" id="selectedStickerLabel">소품을 고르면 이동·크기·회전을 조절할 수 있어요.</p>
               <div class="adjust-row"><label for="stickerSizeRange">선택 소품 크기</label><output id="stickerSizeOutput" for="stickerSizeRange">16%</output></div>
-              <input id="stickerSizeRange" type="range" min="5" max="36" value="16" disabled />
+              <input id="stickerSizeRange" type="range" min="5" max="60" value="16" disabled />
               <div class="adjust-row"><label for="stickerRotationRange">선택 소품 회전</label><output id="stickerRotationOutput" for="stickerRotationRange">0°</output></div>
               <input id="stickerRotationRange" type="range" min="-180" max="180" value="0" disabled />
               <button id="deleteStickerButton" class="secondary-btn prop-delete" type="button" disabled>선택 소품 삭제</button>
@@ -256,6 +260,40 @@
       </main>
     </div>
 
+    <dialog id="propsDialog" class="props-dialog" aria-labelledby="propsDialogTitle">
+      <div class="dialog-heading">
+        <h2 id="propsDialogTitle">소품 고르기</h2>
+        <button class="dialog-close" id="closePropsDialogButton" type="button" aria-label="소품 창 닫기">×</button>
+      </div>
+      <p>이모지나 휴대폰 사진에서 소품을 골라 크기와 회전을 정한 뒤 사진에 추가하세요.</p>
+      <div class="prop-grid" id="propPalette" aria-label="기본 소품">
+        <button class="prop-button" type="button" data-sticker="🕶️" aria-label="선글라스" disabled>🕶️</button>
+        <button class="prop-button" type="button" data-sticker="🎩" aria-label="모자" disabled>🎩</button>
+        <button class="prop-button" type="button" data-sticker="👑" aria-label="왕관" disabled>👑</button>
+        <button class="prop-button" type="button" data-sticker="🎀" aria-label="리본" disabled>🎀</button>
+        <button class="prop-button" type="button" data-sticker="🌸" aria-label="꽃" disabled>🌸</button>
+        <button class="prop-button" type="button" data-sticker="✨" aria-label="반짝이" disabled>✨</button>
+        <button class="prop-button" type="button" data-sticker="❤️" aria-label="하트" disabled>❤️</button>
+        <button class="prop-button" type="button" data-sticker="🥸" aria-label="변장 안경" disabled>🥸</button>
+      </div>
+      <input id="stickerInput" type="file" accept="image/*" hidden />
+      <button id="customStickerButton" class="secondary-btn prop-custom" type="button" disabled>휴대폰 사진에서 소품 선택</button>
+      <p class="draft-hint" id="stickerDraftHint">먼저 위에서 기본 소품을 누르거나 사진을 골라 주세요.</p>
+      <div class="sticker-preview" id="stickerDraftPreview" aria-label="소품 미리보기">
+        <span class="sticker-preview-text" id="stickerPreviewText">소품 선택</span>
+        <img id="stickerPreviewImage" alt="선택한 소품 미리보기" hidden />
+      </div>
+      <div class="adjust-row"><label for="draftStickerSizeRange">추가할 소품 크기</label><output id="draftStickerSizeOutput" for="draftStickerSizeRange">16%</output></div>
+      <input id="draftStickerSizeRange" type="range" min="5" max="60" value="16" disabled />
+      <div class="adjust-row"><label for="draftStickerRotationRange">추가할 소품 회전</label><output id="draftStickerRotationOutput" for="draftStickerRotationRange">0°</output></div>
+      <input id="draftStickerRotationRange" type="range" min="-180" max="180" value="0" disabled />
+      <p class="draft-hint">깔끔하게 배경 없이 넣으려면 투명 PNG·WebP를 사용하세요. 일반 사진은 사진의 배경도 함께 들어갑니다.</p>
+      <div class="dialog-actions">
+        <button class="secondary-btn" id="cancelPropsDialogButton" type="button">닫기</button>
+        <button class="primary-btn" id="addStickerButton" type="button" disabled>사진에 추가</button>
+      </div>
+    </dialog>
+
     <dialog id="installDialog" aria-labelledby="installTitle">
       <h2 id="installTitle">Face Studio 설치</h2>
       <p>Android에서는 Chrome 메뉴에서 설치할 수 있어요.</p>
@@ -285,9 +323,19 @@
         const borderColorInput = document.getElementById('borderColor');
         const borderWidthRange = document.getElementById('borderWidthRange');
         const borderWidthOutput = document.getElementById('borderWidthOutput');
+        const stickerPickerButton = document.getElementById('stickerPickerButton');
+        const propsDialog = document.getElementById('propsDialog');
         const propPalette = document.getElementById('propPalette');
         const stickerInput = document.getElementById('stickerInput');
         const customStickerButton = document.getElementById('customStickerButton');
+        const draftStickerSizeRange = document.getElementById('draftStickerSizeRange');
+        const draftStickerSizeOutput = document.getElementById('draftStickerSizeOutput');
+        const draftStickerRotationRange = document.getElementById('draftStickerRotationRange');
+        const draftStickerRotationOutput = document.getElementById('draftStickerRotationOutput');
+        const stickerDraftHint = document.getElementById('stickerDraftHint');
+        const stickerPreviewText = document.getElementById('stickerPreviewText');
+        const stickerPreviewImage = document.getElementById('stickerPreviewImage');
+        const addStickerButton = document.getElementById('addStickerButton');
         const selectedStickerLabel = document.getElementById('selectedStickerLabel');
         const stickerSizeRange = document.getElementById('stickerSizeRange');
         const stickerSizeOutput = document.getElementById('stickerSizeOutput');
@@ -311,6 +359,7 @@
         let faceLayer = null;
         let stickers = [];
         let selectedSticker = -1;
+        let draftSticker = null;
         let point = { x: 0.5, y: 0.5 };
         let drag = null;
         let installPrompt = null;
@@ -583,13 +632,45 @@
           selectedStickerLabel.textContent = item.kind === 'image' ? `${item.label} 선택됨` : `${item.value} 선택됨`;
         }
 
-        function addEmojiSticker(value) {
-          if (!backgroundImage || !faceImage) return;
-          stickers.push({ kind: 'emoji', value, x: point.x, y: point.y, size: 0.16, rotation: 0 });
-          selectedSticker = stickers.length - 1;
-          updateStickerControls();
-          draw();
-          say(`${value} 소품을 추가했어요. 미리보기에서 끌어 옮겨보세요.`);
+        function updateDraftStickerPreview() {
+          const size = Number(draftStickerSizeRange.value);
+          const rotation = Number(draftStickerRotationRange.value);
+          draftStickerSizeOutput.value = `${size}%`;
+          draftStickerSizeOutput.textContent = `${size}%`;
+          draftStickerRotationOutput.value = `${rotation}°`;
+          draftStickerRotationOutput.textContent = `${rotation}°`;
+          const hasDraft = Boolean(draftSticker);
+          draftStickerSizeRange.disabled = !hasDraft;
+          draftStickerRotationRange.disabled = !hasDraft;
+          addStickerButton.disabled = !hasDraft || !faceImage || !backgroundImage;
+          stickerPreviewText.hidden = !hasDraft || draftSticker.kind !== 'emoji';
+          stickerPreviewImage.hidden = !hasDraft || draftSticker.kind !== 'image';
+          if (!hasDraft) {
+            stickerPreviewText.textContent = '소품 선택';
+            stickerPreviewText.hidden = false;
+            stickerPreviewImage.hidden = true;
+            stickerDraftHint.textContent = '먼저 위에서 기본 소품을 누르거나 사진을 골라 주세요.';
+            return;
+          }
+          draftSticker.size = size / 100;
+          draftSticker.rotation = rotation;
+          if (draftSticker.kind === 'emoji') {
+            stickerPreviewText.textContent = draftSticker.value;
+            stickerPreviewText.style.fontSize = `${Math.round(30 + size * 1.55)}px`;
+            stickerPreviewText.style.transform = `rotate(${rotation}deg)`;
+            stickerDraftHint.textContent = `${draftSticker.value} 선택됨 · 크기 ${size}%`;
+          } else {
+            stickerPreviewImage.src = draftSticker.image.toDataURL('image/png');
+            stickerPreviewImage.style.maxWidth = `${Math.min(90, 28 + size)}%`;
+            stickerPreviewImage.style.maxHeight = `${Math.min(130, 42 + size * 1.45)}px`;
+            stickerPreviewImage.style.transform = `rotate(${rotation}deg)`;
+            stickerDraftHint.textContent = `${draftSticker.label} 선택됨 · 크기 ${size}%`;
+          }
+        }
+
+        function setDraftEmoji(value) {
+          draftSticker = { kind: 'emoji', value, size: Number(draftStickerSizeRange.value) / 100, rotation: Number(draftStickerRotationRange.value) };
+          updateDraftStickerPreview();
         }
 
         async function handleStickerFile() {
@@ -597,16 +678,27 @@
           if (!file) return;
           try {
             const image = await loadStickerFile(file);
-            stickers.push({ kind: 'image', image, label: file.name, x: point.x, y: point.y, size: 0.16, rotation: 0 });
-            selectedSticker = stickers.length - 1;
-            updateStickerControls();
-            draw();
-            say('투명 스티커를 추가했어요. 미리보기에서 끌어 옮겨보세요.');
+            draftSticker = { kind: 'image', image, label: file.name, size: Number(draftStickerSizeRange.value) / 100, rotation: Number(draftStickerRotationRange.value) };
+            updateDraftStickerPreview();
           } catch (error) {
             say(error.message || '스티커를 불러오지 못했어요.');
           } finally {
             stickerInput.value = '';
           }
+        }
+
+        function addDraftSticker() {
+          if (!draftSticker || !faceImage || !backgroundImage) return;
+          const item = { ...draftSticker, x: point.x, y: point.y };
+          stickers.push(item);
+          selectedSticker = stickers.length - 1;
+          const label = item.kind === 'image' ? item.label : item.value;
+          draftSticker = null;
+          updateStickerControls();
+          updateDraftStickerPreview();
+          draw();
+          propsDialog.close();
+          say(`${label} 소품을 추가했어요. 미리보기에서 끌어 옮겨보세요.`);
         }
 
         function updateUi() {
@@ -621,6 +713,7 @@
           borderWidthRange.disabled = !ready;
           removeBackgroundButton.disabled = !faceImage || Boolean(currentRemovalId);
           restoreFaceButton.disabled = !backgroundRemoved;
+          stickerPickerButton.disabled = !ready;
           propPalette.querySelectorAll('button').forEach((button) => { button.disabled = !ready; });
           customStickerButton.disabled = !ready;
           saveButton.disabled = !ready;
@@ -628,6 +721,7 @@
           stepCount.textContent = ready ? 'STEP 02 / 02' : faceImage || backgroundImage ? 'STEP 02 / 02' : 'STEP 01 / 02';
           canvasStatus.textContent = ready ? '두 사진을 기기에서 합성 중' : faceImage ? '이제 배경 사진을 선택해 주세요' : backgroundImage ? '이제 얼굴 사진을 선택해 주세요' : '아직 선택한 사진이 없어요';
           updateStickerControls();
+          updateDraftStickerPreview();
           if (ready) draw();
         }
 
@@ -742,12 +836,25 @@
           prepareFaceLayer();
           draw();
         });
+        stickerPickerButton.addEventListener('click', () => {
+          if (!draftSticker) {
+            draftStickerSizeRange.value = '16';
+            draftStickerRotationRange.value = '0';
+          }
+          updateDraftStickerPreview();
+          propsDialog.showModal();
+        });
         propPalette.addEventListener('click', (event) => {
           const button = event.target.closest('button[data-sticker]');
-          if (button && !button.disabled) addEmojiSticker(button.dataset.sticker);
+          if (button && !button.disabled) setDraftEmoji(button.dataset.sticker);
         });
         customStickerButton.addEventListener('click', () => stickerInput.click());
         stickerInput.addEventListener('change', handleStickerFile);
+        draftStickerSizeRange.addEventListener('input', updateDraftStickerPreview);
+        draftStickerRotationRange.addEventListener('input', updateDraftStickerPreview);
+        addStickerButton.addEventListener('click', addDraftSticker);
+        document.getElementById('closePropsDialogButton').addEventListener('click', () => propsDialog.close());
+        document.getElementById('cancelPropsDialogButton').addEventListener('click', () => propsDialog.close());
         stickerSizeRange.addEventListener('input', () => {
           const item = stickers[selectedSticker];
           if (!item) return;
