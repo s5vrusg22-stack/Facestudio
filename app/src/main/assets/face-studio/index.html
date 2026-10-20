@@ -130,6 +130,7 @@
       .crop-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
       .crop-stage canvas:active { cursor: grabbing; }
       .crop-position-label { margin: 10px 0 7px; color: var(--muted); font-size: 12px; }
+      .crop-reset-button { width: 100%; min-height: 40px; margin: 0 0 10px; }
       .crop-position-pad { width: min(100%, 220px); margin: 0 auto 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
       .crop-position-pad button { min-height: 40px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel-soft); font-size: 15px; cursor: pointer; }
       .crop-position-pad button:hover { border-color: var(--accent); }
@@ -288,13 +289,16 @@
       <div class="dialog-heading">
         <h2 id="faceCropTitle">합성할 부위 선택</h2>
       </div>
-      <p id="faceCropHelp">네모 안에 들어오는 부분이 합성돼요. 사진을 끌어 위치를 옮기고, 아래 막대로 확대하세요.</p>
+      <p id="faceCropHelp">사진을 자유롭게 끌고, 축소·확대하거나 회전해 합성할 부분을 고르세요.</p>
       <div class="crop-stage" id="faceCropStage">
         <canvas id="faceCropCanvas" width="640" height="640" aria-label="합성할 사진 영역을 끌어서 선택"></canvas>
       </div>
-      <div class="adjust-row"><label for="faceCropZoomRange">선택 영역 확대</label><output id="faceCropZoomOutput" for="faceCropZoomRange">100%</output></div>
-      <input id="faceCropZoomRange" type="range" min="100" max="400" value="100" step="1" aria-label="선택 영역 확대" />
-      <p class="crop-position-label">방향 버튼으로도 선택 영역을 움직일 수 있어요</p>
+      <div class="adjust-row"><label for="faceCropZoomRange">사진 축소·확대</label><output id="faceCropZoomOutput" for="faceCropZoomRange">100%</output></div>
+      <input id="faceCropZoomRange" type="range" min="25" max="400" value="100" step="1" aria-label="사진 축소·확대" />
+      <div class="adjust-row"><label for="faceCropRotationRange">사진 회전</label><output id="faceCropRotationOutput" for="faceCropRotationRange">0°</output></div>
+      <input id="faceCropRotationRange" type="range" min="-180" max="180" value="0" step="1" aria-label="사진 회전" />
+      <button class="secondary-btn crop-reset-button" id="resetFaceCropButton" type="button">위치·각도 초기화</button>
+      <p class="crop-position-label">방향 버튼으로도 사진을 옮길 수 있어요</p>
       <div class="crop-position-pad" aria-label="사진 영역 이동">
         <button type="button" data-crop-move="-1,-1" aria-label="영역을 왼쪽 위로 이동">↖</button>
         <button type="button" data-crop-move="0,-1" aria-label="영역을 위로 이동">↑</button>
@@ -372,6 +376,8 @@
         const faceCropStage = document.getElementById('faceCropStage');
         const faceCropZoomRange = document.getElementById('faceCropZoomRange');
         const faceCropZoomOutput = document.getElementById('faceCropZoomOutput');
+        const faceCropRotationRange = document.getElementById('faceCropRotationRange');
+        const faceCropRotationOutput = document.getElementById('faceCropRotationOutput');
         const scaleRange = document.getElementById('scaleRange');
         const faceSizeDownButton = document.getElementById('faceSizeDownButton');
         const faceSizeUpButton = document.getElementById('faceSizeUpButton');
@@ -601,12 +607,33 @@
 
         function clampFaceCrop(crop) {
           if (!faceImage) return null;
-          const side = Math.max(1, Math.min(crop.side, faceImage.width, faceImage.height));
+          const baseSide = Math.min(faceImage.width, faceImage.height);
+          const side = Math.max(baseSide / 4, Math.min(baseSide * 4, crop.side));
+          const rotation = Math.max(-180, Math.min(180, Number(crop.rotation) || 0));
+          const radians = rotation * Math.PI / 180;
+          const projectedHalf = side / 2 * (Math.abs(Math.cos(radians)) + Math.abs(Math.sin(radians)));
+          const constrainCenter = (center, dimension) => {
+            if (projectedHalf > dimension / 2) return Math.max(0, Math.min(dimension, center));
+            return Math.max(projectedHalf, Math.min(dimension - projectedHalf, center));
+          };
+          const centerX = constrainCenter(crop.x + crop.side / 2, faceImage.width);
+          const centerY = constrainCenter(crop.y + crop.side / 2, faceImage.height);
           return {
             side,
-            x: Math.max(0, Math.min(faceImage.width - side, crop.x)),
-            y: Math.max(0, Math.min(faceImage.height - side, crop.y))
+            x: centerX - side / 2,
+            y: centerY - side / 2,
+            rotation
           };
+        }
+
+        function drawFaceImageFrame(targetCtx, crop, size) {
+          targetCtx.save();
+          targetCtx.translate(size / 2, size / 2);
+          targetCtx.rotate(crop.rotation * Math.PI / 180);
+          targetCtx.scale(size / crop.side, size / crop.side);
+          targetCtx.translate(-(crop.x + crop.side / 2), -(crop.y + crop.side / 2));
+          targetCtx.drawImage(faceImage, 0, 0);
+          targetCtx.restore();
         }
 
         function drawFaceCropEditor() {
@@ -618,7 +645,7 @@
           faceCropCtx.fillRect(0, 0, size, size);
           faceCropCtx.imageSmoothingEnabled = true;
           faceCropCtx.imageSmoothingQuality = 'high';
-          faceCropCtx.drawImage(faceImage, draftFaceCrop.x, draftFaceCrop.y, draftFaceCrop.side, draftFaceCrop.side, 0, 0, size, size);
+          drawFaceImageFrame(faceCropCtx, draftFaceCrop, size);
           faceCropCtx.save();
           faceCropCtx.strokeStyle = '#ffffff55';
           faceCropCtx.lineWidth = 1;
@@ -641,9 +668,12 @@
           });
           faceCropCtx.restore();
           const zoom = Math.round(Math.min(faceImage.width, faceImage.height) / draftFaceCrop.side * 100);
-          faceCropZoomRange.value = String(Math.max(100, Math.min(400, zoom)));
+          faceCropZoomRange.value = String(Math.max(25, Math.min(400, zoom)));
           faceCropZoomOutput.value = `${faceCropZoomRange.value}%`;
           faceCropZoomOutput.textContent = `${faceCropZoomRange.value}%`;
+          faceCropRotationRange.value = String(Math.round(draftFaceCrop.rotation));
+          faceCropRotationOutput.value = `${faceCropRotationRange.value}°`;
+          faceCropRotationOutput.textContent = `${faceCropRotationRange.value}°`;
         }
 
         function openFaceCropDialog() {
@@ -656,16 +686,22 @@
         function setFaceCropZoom(percent) {
           if (!faceImage || !draftFaceCrop) return;
           const baseSide = Math.min(faceImage.width, faceImage.height);
-          const nextSide = baseSide / Math.max(1, Math.min(400, percent) / 100);
+          const nextSide = baseSide / Math.max(25, Math.min(400, percent)) * 100;
           const centerX = draftFaceCrop.x + draftFaceCrop.side / 2;
           const centerY = draftFaceCrop.y + draftFaceCrop.side / 2;
-          draftFaceCrop = clampFaceCrop({ side: nextSide, x: centerX - nextSide / 2, y: centerY - nextSide / 2 });
+          draftFaceCrop = clampFaceCrop({ ...draftFaceCrop, side: nextSide, x: centerX - nextSide / 2, y: centerY - nextSide / 2 });
+          drawFaceCropEditor();
+        }
+
+        function setFaceCropRotation(degrees) {
+          if (!faceImage || !draftFaceCrop) return;
+          draftFaceCrop = clampFaceCrop({ ...draftFaceCrop, rotation: degrees });
           drawFaceCropEditor();
         }
 
         function moveFaceCrop(dx, dy) {
           if (!faceImage || !draftFaceCrop) return;
-          const step = draftFaceCrop.side * 0.18;
+          const step = Math.min(draftFaceCrop.side * 0.18, Math.max(faceImage.width, faceImage.height) * 0.1);
           draftFaceCrop = clampFaceCrop({ ...draftFaceCrop, x: draftFaceCrop.x + dx * step, y: draftFaceCrop.y + dy * step });
           drawFaceCropEditor();
         }
@@ -685,7 +721,7 @@
             x: (faceImage.width - defaultCropSide) / 2,
             y: (faceImage.height - defaultCropSide) / 2
           });
-          g.drawImage(faceImage, selectedCrop.x, selectedCrop.y, selectedCrop.side, selectedCrop.side, 0, 0, side, side);
+          drawFaceImageFrame(g, selectedCrop, side);
           const softness = Number(edgeRange.value);
           const shape = maskShapeSelect.value;
           if (shape !== 'person') g.globalCompositeOperation = 'destination-in';
@@ -926,7 +962,7 @@
               faceImage = image;
               originalFaceImage = image;
               const cropSide = Math.min(image.width, image.height);
-              faceCrop = { side: cropSide, x: (image.width - cropSide) / 2, y: (image.height - cropSide) / 2 };
+              faceCrop = { side: cropSide, x: (image.width - cropSide) / 2, y: (image.height - cropSide) / 2, rotation: 0 };
               backgroundRemoved = false;
               maskShapeBeforeRemoval = 'circle';
               maskShapeSelect.value = 'circle';
@@ -952,6 +988,7 @@
         backgroundInput.addEventListener('change', () => handleFile(backgroundInput, 'background'));
         faceCropButton.addEventListener('click', openFaceCropDialog);
         faceCropZoomRange.addEventListener('input', () => setFaceCropZoom(Number(faceCropZoomRange.value)));
+        faceCropRotationRange.addEventListener('input', () => setFaceCropRotation(Number(faceCropRotationRange.value)));
         faceCropCanvas.addEventListener('pointerdown', (event) => {
           if (!faceImage || !draftFaceCrop) return;
           event.preventDefault();
@@ -964,10 +1001,13 @@
           const deltaX = (event.clientX - faceCropDrag.x) * faceCropCanvas.width / rect.width;
           const deltaY = (event.clientY - faceCropDrag.y) * faceCropCanvas.height / rect.height;
           const pixelsPerCanvas = faceCropDrag.crop.side / faceCropCanvas.width;
+          const radians = faceCropDrag.crop.rotation * Math.PI / 180;
+          const sourceDeltaX = Math.cos(radians) * deltaX + Math.sin(radians) * deltaY;
+          const sourceDeltaY = -Math.sin(radians) * deltaX + Math.cos(radians) * deltaY;
           draftFaceCrop = clampFaceCrop({
             ...faceCropDrag.crop,
-            x: faceCropDrag.crop.x - deltaX * pixelsPerCanvas,
-            y: faceCropDrag.crop.y - deltaY * pixelsPerCanvas
+            x: faceCropDrag.crop.x - sourceDeltaX * pixelsPerCanvas,
+            y: faceCropDrag.crop.y - sourceDeltaY * pixelsPerCanvas
           });
           drawFaceCropEditor();
         });
@@ -987,7 +1027,17 @@
         faceCropDialog.querySelector('[data-crop-center]').addEventListener('click', () => {
           if (!faceImage || !draftFaceCrop) return;
           const side = draftFaceCrop.side;
-          draftFaceCrop = clampFaceCrop({ side, x: (faceImage.width - side) / 2, y: (faceImage.height - side) / 2 });
+          draftFaceCrop = clampFaceCrop({
+            ...draftFaceCrop,
+            x: (faceImage.width - side) / 2,
+            y: (faceImage.height - side) / 2
+          });
+          drawFaceCropEditor();
+        });
+        document.getElementById('resetFaceCropButton').addEventListener('click', () => {
+          if (!faceImage || !draftFaceCrop) return;
+          const cropSide = Math.min(faceImage.width, faceImage.height);
+          draftFaceCrop = clampFaceCrop({ side: cropSide, x: (faceImage.width - cropSide) / 2, y: (faceImage.height - cropSide) / 2, rotation: 0 });
           drawFaceCropEditor();
         });
         document.getElementById('cancelFaceCropButton').addEventListener('click', () => faceCropDialog.close());
