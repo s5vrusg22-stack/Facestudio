@@ -79,6 +79,7 @@
       .prop-button:hover:not(:disabled), .prop-button:focus-visible { border-color: var(--accent); background: #d6a7ff12; }
       .prop-custom { width: 100%; margin: 0 0 13px; }
       .prop-picker { width: 100%; min-height: 46px; margin: 0 0 12px; }
+      .prop-background-removal { width: 100%; min-height: 43px; margin: 0 0 12px; font-size: 12px; }
       .selected-prop { min-height: 17px; margin: 0 0 10px; color: var(--subtle); font-size: 11px; }
       .prop-delete { width: 100%; min-height: 40px; margin: 0 0 15px; }
       .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
@@ -278,6 +279,7 @@
       </div>
       <input id="stickerInput" type="file" accept="image/*" hidden />
       <button id="customStickerButton" class="secondary-btn prop-custom" type="button" disabled>휴대폰 사진에서 소품 선택</button>
+      <button id="removeStickerBackgroundButton" class="secondary-btn prop-background-removal" type="button" disabled>인물 사진 배경 분리</button>
       <p class="draft-hint" id="stickerDraftHint">먼저 위에서 기본 소품을 누르거나 사진을 골라 주세요.</p>
       <div class="sticker-preview" id="stickerDraftPreview" aria-label="소품 미리보기">
         <span class="sticker-preview-text" id="stickerPreviewText">소품 선택</span>
@@ -287,7 +289,7 @@
       <input id="draftStickerSizeRange" type="range" min="5" max="60" value="16" disabled />
       <div class="adjust-row"><label for="draftStickerRotationRange">추가할 소품 회전</label><output id="draftStickerRotationOutput" for="draftStickerRotationRange">0°</output></div>
       <input id="draftStickerRotationRange" type="range" min="-180" max="180" value="0" disabled />
-      <p class="draft-hint">깔끔하게 배경 없이 넣으려면 투명 PNG·WebP를 사용하세요. 일반 사진은 사진의 배경도 함께 들어갑니다.</p>
+      <p class="draft-hint">사람 사진은 Android 앱에서 인물 배경을 분리할 수 있어요. 다른 소품 이미지의 배경을 깔끔히 빼려면 투명 PNG·WebP를 사용하세요. 일반 사진은 배경도 함께 들어갑니다.</p>
       <div class="dialog-actions">
         <button class="secondary-btn" id="cancelPropsDialogButton" type="button">닫기</button>
         <button class="primary-btn" id="addStickerButton" type="button" disabled>사진에 추가</button>
@@ -328,6 +330,7 @@
         const propPalette = document.getElementById('propPalette');
         const stickerInput = document.getElementById('stickerInput');
         const customStickerButton = document.getElementById('customStickerButton');
+        const removeStickerBackgroundButton = document.getElementById('removeStickerBackgroundButton');
         const draftStickerSizeRange = document.getElementById('draftStickerSizeRange');
         const draftStickerSizeOutput = document.getElementById('draftStickerSizeOutput');
         const draftStickerRotationRange = document.getElementById('draftStickerRotationRange');
@@ -354,6 +357,7 @@
         let originalFaceImage = null;
         let backgroundRemoved = false;
         let currentRemovalId = null;
+        let currentStickerRemovalId = null;
         let maskShapeBeforeRemoval = 'circle';
         let backgroundImage = null;
         let faceLayer = null;
@@ -373,6 +377,41 @@
         }
 
         window.receiveNativeCutout = (requestId, base64, error) => {
+          if (requestId === currentStickerRemovalId) {
+            if (error || !base64) {
+              currentStickerRemovalId = null;
+              stickerDraftHint.textContent = error || '인물 배경을 분리하지 못했어요. 다른 사진으로 다시 시도해 주세요.';
+              updateUi();
+              say(stickerDraftHint.textContent);
+              return;
+            }
+            const maskImage = new Image();
+            maskImage.onload = () => {
+              currentStickerRemovalId = null;
+              if (!draftSticker || draftSticker.kind !== 'image') { updateUi(); return; }
+              const cutout = document.createElement('canvas');
+              cutout.width = draftSticker.image.width;
+              cutout.height = draftSticker.image.height;
+              const g = cutout.getContext('2d', { alpha: true });
+              g.imageSmoothingEnabled = true;
+              g.imageSmoothingQuality = 'high';
+              g.drawImage(draftSticker.image, 0, 0, cutout.width, cutout.height);
+              g.globalCompositeOperation = 'destination-in';
+              g.drawImage(maskImage, 0, 0, cutout.width, cutout.height);
+              g.globalCompositeOperation = 'source-over';
+              draftSticker.image = cutout;
+              if (!draftSticker.label.includes('배경 분리')) draftSticker.label = `${draftSticker.label} (배경 분리)`;
+              updateUi();
+              say('인물 사진 배경을 분리했어요. 미리보기에서 가장자리를 확인해 주세요.');
+            };
+            maskImage.onerror = () => {
+              currentStickerRemovalId = null;
+              stickerDraftHint.textContent = '분리 결과를 불러오지 못했어요. 다시 시도해 주세요.';
+              updateUi();
+            };
+            maskImage.src = `data:image/png;base64,${base64}`;
+            return;
+          }
           if (requestId !== currentRemovalId) return;
           currentRemovalId = null;
           removeBackgroundButton.disabled = !faceImage;
@@ -642,7 +681,8 @@
           const hasDraft = Boolean(draftSticker);
           draftStickerSizeRange.disabled = !hasDraft;
           draftStickerRotationRange.disabled = !hasDraft;
-          addStickerButton.disabled = !hasDraft || !faceImage || !backgroundImage;
+          addStickerButton.disabled = !hasDraft || !faceImage || !backgroundImage || Boolean(currentRemovalId || currentStickerRemovalId);
+          removeStickerBackgroundButton.disabled = !hasDraft || draftSticker.kind !== 'image' || !window.FaceStudioNative || !window.FaceStudioNative.removeBackground || Boolean(currentRemovalId || currentStickerRemovalId);
           stickerPreviewText.hidden = !hasDraft || draftSticker.kind !== 'emoji';
           stickerPreviewImage.hidden = !hasDraft || draftSticker.kind !== 'image';
           if (!hasDraft) {
@@ -664,7 +704,7 @@
             stickerPreviewImage.style.maxWidth = `${Math.min(90, 28 + size)}%`;
             stickerPreviewImage.style.maxHeight = `${Math.min(130, 42 + size * 1.45)}px`;
             stickerPreviewImage.style.transform = `rotate(${rotation}deg)`;
-            stickerDraftHint.textContent = `${draftSticker.label} 선택됨 · 크기 ${size}%`;
+            stickerDraftHint.textContent = currentStickerRemovalId ? '인물 배경을 분리하고 있어요…' : `${draftSticker.label} 선택됨 · 크기 ${size}%`;
           }
         }
 
@@ -711,11 +751,11 @@
           maskShapeSelect.querySelector('option[value="person"]').disabled = !backgroundRemoved;
           borderColorInput.disabled = !ready;
           borderWidthRange.disabled = !ready;
-          removeBackgroundButton.disabled = !faceImage || Boolean(currentRemovalId);
+          removeBackgroundButton.disabled = !faceImage || Boolean(currentRemovalId || currentStickerRemovalId);
           restoreFaceButton.disabled = !backgroundRemoved;
           stickerPickerButton.disabled = !ready;
-          propPalette.querySelectorAll('button').forEach((button) => { button.disabled = !ready; });
-          customStickerButton.disabled = !ready;
+          propPalette.querySelectorAll('button').forEach((button) => { button.disabled = !ready || Boolean(currentRemovalId || currentStickerRemovalId); });
+          customStickerButton.disabled = !ready || Boolean(currentRemovalId || currentStickerRemovalId);
           saveButton.disabled = !ready;
           shareButton.disabled = !ready || (!navigator.share && !window.FaceStudioNative);
           stepCount.textContent = ready ? 'STEP 02 / 02' : faceImage || backgroundImage ? 'STEP 02 / 02' : 'STEP 01 / 02';
@@ -775,7 +815,7 @@
         faceInput.addEventListener('change', () => handleFile(faceInput, 'face'));
         backgroundInput.addEventListener('change', () => handleFile(backgroundInput, 'background'));
         removeBackgroundButton.addEventListener('click', () => {
-          if (!originalFaceImage) return;
+          if (!originalFaceImage || currentStickerRemovalId) return;
           if (!window.FaceStudioNative || !window.FaceStudioNative.removeBackground) {
             backgroundRemovalStatus.textContent = '이 기능은 설치형 Android 앱에서 사용할 수 있어요.';
             say(backgroundRemovalStatus.textContent);
@@ -792,17 +832,17 @@
             const base64 = modelInput.toDataURL('image/jpeg', 0.9).split(',')[1];
             maskShapeBeforeRemoval = maskShapeSelect.value === 'person' ? 'circle' : maskShapeSelect.value;
             currentRemovalId = requestId;
-            removeBackgroundButton.disabled = true;
+            updateUi();
             backgroundRemovalStatus.textContent = '사진에서 인물을 분리하고 있어요…';
             const started = window.FaceStudioNative.removeBackground(base64, requestId);
             if (!started) {
               currentRemovalId = null;
-              removeBackgroundButton.disabled = false;
+              updateUi();
               backgroundRemovalStatus.textContent = '분리를 시작하지 못했어요. 사진을 다시 선택해 주세요.';
             }
           } catch (error) {
             currentRemovalId = null;
-            removeBackgroundButton.disabled = false;
+            updateUi();
             backgroundRemovalStatus.textContent = '사진을 분리하는 중 오류가 났어요. 다시 시도해 주세요.';
           }
         });
@@ -850,6 +890,36 @@
         });
         customStickerButton.addEventListener('click', () => stickerInput.click());
         stickerInput.addEventListener('change', handleStickerFile);
+        removeStickerBackgroundButton.addEventListener('click', () => {
+          if (!draftSticker || draftSticker.kind !== 'image' || currentRemovalId || currentStickerRemovalId) return;
+          const bridge = window.FaceStudioNative;
+          if (!bridge || !bridge.removeBackground) {
+            stickerDraftHint.textContent = '인물 배경 분리는 설치형 Android 앱에서 사용할 수 있어요.';
+            return;
+          }
+          try {
+            const requestId = `sticker-cutout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const modelInput = document.createElement('canvas');
+            const maxSide = 1280;
+            const scale = Math.min(1, maxSide / Math.max(draftSticker.image.width, draftSticker.image.height));
+            modelInput.width = Math.max(1, Math.round(draftSticker.image.width * scale));
+            modelInput.height = Math.max(1, Math.round(draftSticker.image.height * scale));
+            modelInput.getContext('2d', { alpha: false }).drawImage(draftSticker.image, 0, 0, modelInput.width, modelInput.height);
+            const base64 = modelInput.toDataURL('image/jpeg', 0.9).split(',')[1];
+            currentStickerRemovalId = requestId;
+            updateUi();
+            stickerDraftHint.textContent = '인물 배경을 분리하고 있어요…';
+            if (!bridge.removeBackground(base64, requestId)) {
+              currentStickerRemovalId = null;
+              updateUi();
+              stickerDraftHint.textContent = '분리를 시작하지 못했어요. 다시 시도해 주세요.';
+            }
+          } catch (error) {
+            currentStickerRemovalId = null;
+            updateUi();
+            stickerDraftHint.textContent = '사진을 분리하는 중 오류가 났어요. 다시 시도해 주세요.';
+          }
+        });
         draftStickerSizeRange.addEventListener('input', updateDraftStickerPreview);
         draftStickerRotationRange.addEventListener('input', updateDraftStickerPreview);
         addStickerButton.addEventListener('click', addDraftSticker);
