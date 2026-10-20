@@ -380,8 +380,8 @@
           if (requestId === currentStickerRemovalId) {
             if (error || !base64) {
               currentStickerRemovalId = null;
-              stickerDraftHint.textContent = error || '인물 배경을 분리하지 못했어요. 다른 사진으로 다시 시도해 주세요.';
               updateUi();
+              stickerDraftHint.textContent = error || '인물 배경을 분리하지 못했어요. 다른 사진으로 다시 시도해 주세요.';
               say(stickerDraftHint.textContent);
               return;
             }
@@ -406,8 +406,8 @@
             };
             maskImage.onerror = () => {
               currentStickerRemovalId = null;
-              stickerDraftHint.textContent = '분리 결과를 불러오지 못했어요. 다시 시도해 주세요.';
               updateUi();
+              stickerDraftHint.textContent = '분리 결과를 불러오지 못했어요. 다시 시도해 주세요.';
             };
             maskImage.src = `data:image/png;base64,${base64}`;
             return;
