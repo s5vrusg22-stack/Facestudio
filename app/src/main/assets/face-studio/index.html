@@ -68,6 +68,10 @@
       .adjust-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
       .adjust-row output { min-width: 34px; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
       input[type="range"] { width: 100%; height: 24px; margin: 0 0 16px; accent-color: var(--accent-strong); cursor: pointer; }
+      .range-stepper { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 9px; margin: 0 0 8px; }
+      .range-stepper input[type="range"] { margin-bottom: 16px; }
+      .step-button { width: 40px; height: 38px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-soft); color: var(--ink); font-size: 21px; font-weight: 700; cursor: pointer; }
+      .step-button:hover:not(:disabled) { border-color: var(--accent); background: #d6a7ff12; }
       .helper-text { margin: 0 0 18px; color: var(--subtle); font-size: 11px; line-height: 1.65; }
       .select-control { max-width: 150px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-soft); color: var(--ink); font-size: 12px; }
       .color-control { width: 43px; height: 32px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-soft); }
@@ -203,8 +207,12 @@
             <p class="helper-text background-status" id="backgroundRemovalStatus" role="status" aria-live="polite">얼굴 사진을 선택하면 원래 배경을 기기 안에서 자동으로 분리할 수 있어요.</p>
 
             <div class="adjustments" aria-label="얼굴 사진 조절">
-              <div class="adjust-row"><label for="scaleRange">얼굴 크기</label><output id="scaleOutput" for="scaleRange">30%</output></div>
-              <input id="scaleRange" type="range" min="14" max="72" value="30" disabled />
+              <div class="adjust-row"><label for="scaleRange">배경 위 얼굴 칸 크기</label><output id="scaleOutput" for="scaleRange">30%</output></div>
+              <div class="range-stepper" aria-label="얼굴 사진 크기 조절">
+                <button class="step-button" id="faceSizeDownButton" type="button" aria-label="얼굴 사진 작게" disabled>−</button>
+                <input id="scaleRange" type="range" min="5" max="100" step="1" value="30" aria-label="배경 위 얼굴 사진 크기" disabled />
+                <button class="step-button" id="faceSizeUpButton" type="button" aria-label="얼굴 사진 크게" disabled>+</button>
+              </div>
               <div class="adjust-row"><label for="edgeRange">가장자리 부드럽게</label><output id="edgeOutput" for="edgeRange">18</output></div>
               <input id="edgeRange" type="range" min="0" max="30" value="18" disabled />
               <div class="adjust-row"><label for="maskShape">테두리 모양</label>
@@ -216,7 +224,7 @@
               <div class="adjust-row"><label for="borderColor">테두리 색</label><input id="borderColor" class="color-control" type="color" value="#d6a7ff" disabled /></div>
               <div class="adjust-row"><label for="borderWidthRange">테두리 두께</label><output id="borderWidthOutput" for="borderWidthRange">0%</output></div>
               <input id="borderWidthRange" type="range" min="0" max="6" value="0" step="1" disabled />
-              <p class="helper-text">미리보기에서 얼굴이나 소품을 끌어 위치를 맞춰요.</p>
+              <p class="helper-text">얼굴 사진만 먼저 골라도 크기를 정할 수 있어요. − / + 또는 막대로 바꾸고, 배경을 고른 뒤 미리보기에서 끌어 위치를 옮겨요.</p>
             </div>
 
             <div class="adjustments" aria-label="소품 추가">
@@ -315,6 +323,8 @@
         const faceName = document.getElementById('faceFileName');
         const backgroundName = document.getElementById('backgroundFileName');
         const scaleRange = document.getElementById('scaleRange');
+        const faceSizeDownButton = document.getElementById('faceSizeDownButton');
+        const faceSizeUpButton = document.getElementById('faceSizeUpButton');
         const edgeRange = document.getElementById('edgeRange');
         const scaleOutput = document.getElementById('scaleOutput');
         const edgeOutput = document.getElementById('edgeOutput');
@@ -745,7 +755,9 @@
           const ready = Boolean(faceImage && backgroundImage);
           emptyState.hidden = Boolean(backgroundImage);
           canvas.style.display = backgroundImage ? 'block' : 'none';
-          scaleRange.disabled = !ready;
+          scaleRange.disabled = !faceImage;
+          faceSizeDownButton.disabled = !faceImage;
+          faceSizeUpButton.disabled = !faceImage;
           edgeRange.disabled = !ready || (maskShapeSelect.value === 'person' && backgroundRemoved);
           maskShapeSelect.disabled = !ready;
           maskShapeSelect.querySelector('option[value="person"]').disabled = !backgroundRemoved;
@@ -857,11 +869,16 @@
           updateUi();
           say('원본 사진으로 복원했어요.');
         });
-        scaleRange.addEventListener('input', () => {
-          scaleOutput.value = `${scaleRange.value}%`;
-          scaleOutput.textContent = `${scaleRange.value}%`;
+        function setFaceScale(value) {
+          const nextValue = Math.max(Number(scaleRange.min), Math.min(Number(scaleRange.max), value));
+          scaleRange.value = String(nextValue);
+          scaleOutput.value = `${nextValue}%`;
+          scaleOutput.textContent = `${nextValue}%`;
           draw();
-        });
+        }
+        scaleRange.addEventListener('input', () => setFaceScale(Number(scaleRange.value)));
+        faceSizeDownButton.addEventListener('click', () => setFaceScale(Number(scaleRange.value) - 5));
+        faceSizeUpButton.addEventListener('click', () => setFaceScale(Number(scaleRange.value) + 5));
         edgeRange.addEventListener('input', () => {
           edgeOutput.value = edgeRange.value;
           edgeOutput.textContent = edgeRange.value;
