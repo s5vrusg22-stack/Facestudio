@@ -66,6 +66,7 @@
       .upload-box input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
       .adjustments { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
       .adjust-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+      .adjust-row[hidden] { display: none; }
       .adjust-row output { min-width: 34px; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
       input[type="range"] { width: 100%; height: 24px; margin: 0 0 16px; accent-color: var(--accent-strong); cursor: pointer; }
       .range-stepper { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 9px; margin: 0 0 8px; }
@@ -233,8 +234,23 @@
               <input id="edgeRange" type="range" min="0" max="30" value="18" disabled />
               <div class="adjust-row"><label for="maskShape">테두리 모양</label>
                 <select id="maskShape" class="select-control" disabled>
-                  <option value="circle">원형</option><option value="rounded">둥근 사각형</option><option value="square">사각형</option>
+                  <option value="circle">원형</option>
+                  <option value="oval-horizontal">가로 달걀형</option>
+                  <option value="oval-vertical">세로 달걀형</option>
+                  <option value="rounded">둥근 사각형</option>
+                  <option value="rectangle-horizontal">가로 직사각형</option>
+                  <option value="rectangle-vertical">세로 직사각형</option>
+                  <option value="square">정사각형</option>
+                  <option value="speech">말풍선</option>
+                  <option value="round-bubble">원형 말풍선 꼬리표</option>
                   <option value="person" disabled>인물 윤곽 (자동 제거)</option>
+                </select>
+              </div>
+              <div class="adjust-row" id="bubbleTailDirectionRow" hidden>
+                <label for="bubbleTailDirection">말풍선 꼬리 방향</label>
+                <select id="bubbleTailDirection" class="select-control" disabled>
+                  <option value="bottom">아래</option><option value="right">오른쪽</option>
+                  <option value="top">위</option><option value="left">왼쪽</option>
                 </select>
               </div>
               <div class="adjust-row"><label for="borderColor">테두리 색</label><input id="borderColor" class="color-control" type="color" value="#d6a7ff" disabled /></div>
@@ -388,6 +404,8 @@
         const restoreFaceButton = document.getElementById('restoreFaceButton');
         const backgroundRemovalStatus = document.getElementById('backgroundRemovalStatus');
         const maskShapeSelect = document.getElementById('maskShape');
+        const bubbleTailDirectionRow = document.getElementById('bubbleTailDirectionRow');
+        const bubbleTailDirectionSelect = document.getElementById('bubbleTailDirection');
         const borderColorInput = document.getElementById('borderColor');
         const borderWidthRange = document.getElementById('borderWidthRange');
         const borderWidthOutput = document.getElementById('borderWidthOutput');
@@ -594,14 +612,62 @@
           }
         }
 
-        function traceMaskPath(g, shape, inset = 0) {
+        function traceSpeechBubblePath(g, roundBubble, inset, direction) {
+          const rotations = { bottom: 0, left: Math.PI / 2, top: Math.PI, right: -Math.PI / 2 };
+          g.save();
+          g.translate(320, 320);
+          g.rotate(rotations[direction] || 0);
+          g.beginPath();
+          if (roundBubble) {
+            const radius = 222 - inset;
+            const centerY = -25;
+            const leftX = radius * 0.22;
+            const rightX = radius * 0.55;
+            const leftY = centerY + Math.sqrt(Math.max(0, radius * radius - leftX * leftX));
+            const rightY = centerY + Math.sqrt(Math.max(0, radius * radius - rightX * rightX));
+            const leftAngle = Math.atan2(leftY - centerY, leftX);
+            const rightAngle = Math.atan2(rightY - centerY, rightX);
+            g.moveTo(leftX, leftY);
+            g.arc(0, centerY, radius, leftAngle, rightAngle + Math.PI * 2);
+            g.lineTo(radius * 0.66, radius + 55 - inset);
+            g.closePath();
+          } else {
+            const left = -278 + inset;
+            const right = 278 - inset;
+            const top = -252 + inset;
+            const bottom = 170 - inset;
+            const radius = Math.min(54, (right - left) * 0.16);
+            g.moveTo(left + radius, top);
+            g.lineTo(right - radius, top);
+            g.quadraticCurveTo(right, top, right, top + radius);
+            g.lineTo(right, bottom - radius);
+            g.quadraticCurveTo(right, bottom, right - radius, bottom);
+            g.lineTo(54, bottom);
+            g.lineTo(94, 282 - inset);
+            g.lineTo(-12, bottom);
+            g.lineTo(left + radius, bottom);
+            g.quadraticCurveTo(left, bottom, left, bottom - radius);
+            g.lineTo(left, top + radius);
+            g.quadraticCurveTo(left, top, left + radius, top);
+            g.closePath();
+          }
+          g.restore();
+        }
+
+        function traceMaskPath(g, shape, inset = 0, tailDirection = 'bottom') {
           const side = 640;
           const x = inset;
           const y = inset;
           const size = side - inset * 2;
           g.beginPath();
           if (shape === 'circle') g.arc(side / 2, side / 2, size / 2, 0, Math.PI * 2);
+          else if (shape === 'oval-horizontal') g.ellipse(side / 2, side / 2, size * 0.48, size * 0.34, 0, 0, Math.PI * 2);
+          else if (shape === 'oval-vertical') g.ellipse(side / 2, side / 2, size * 0.34, size * 0.48, 0, 0, Math.PI * 2);
           else if (shape === 'rounded') g.roundRect(x, y, size, size, size * 0.18);
+          else if (shape === 'rectangle-horizontal') g.rect(x + size * 0.02, y + size * 0.18, size * 0.96, size * 0.64);
+          else if (shape === 'rectangle-vertical') g.rect(x + size * 0.18, y + size * 0.02, size * 0.64, size * 0.96);
+          else if (shape === 'speech') traceSpeechBubblePath(g, false, inset, tailDirection);
+          else if (shape === 'round-bubble') traceSpeechBubblePath(g, true, inset, tailDirection);
           else g.rect(x, y, size, size);
         }
 
@@ -743,7 +809,7 @@
             const mg = mask.getContext('2d');
             mg.fillStyle = '#fff';
             mg.filter = softness ? `blur(${Math.min(16, softness * 0.55)}px)` : 'none';
-            traceMaskPath(mg, shape);
+            traceMaskPath(mg, shape, 0, bubbleTailDirectionSelect.value);
             mg.fill();
             mg.filter = 'none';
             g.drawImage(mask, 0, 0);
@@ -772,7 +838,7 @@
             } else {
               g.strokeStyle = borderColorInput.value;
               g.lineWidth = width;
-              traceMaskPath(g, shape, width / 2);
+              traceMaskPath(g, shape, width / 2, bubbleTailDirectionSelect.value);
               g.stroke();
             }
           }
@@ -918,6 +984,9 @@
           edgeRange.disabled = !ready || (maskShapeSelect.value === 'person' && backgroundRemoved);
           maskShapeSelect.disabled = !ready;
           maskShapeSelect.querySelector('option[value="person"]').disabled = !backgroundRemoved;
+          const hasBubbleTail = maskShapeSelect.value === 'speech' || maskShapeSelect.value === 'round-bubble';
+          bubbleTailDirectionRow.hidden = !hasBubbleTail;
+          bubbleTailDirectionSelect.disabled = !ready || !hasBubbleTail;
           borderColorInput.disabled = !ready;
           borderWidthRange.disabled = !ready;
           removeBackgroundButton.disabled = !faceImage || Boolean(currentRemovalId || currentStickerRemovalId);
@@ -1109,6 +1178,7 @@
           draw();
         });
         maskShapeSelect.addEventListener('change', () => { updateUi(); prepareFaceLayer(); draw(); });
+        bubbleTailDirectionSelect.addEventListener('change', () => { prepareFaceLayer(); draw(); });
         borderColorInput.addEventListener('input', () => { prepareFaceLayer(); draw(); });
         borderWidthRange.addEventListener('input', () => {
           borderWidthOutput.value = `${borderWidthRange.value}%`;
